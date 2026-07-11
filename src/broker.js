@@ -2,22 +2,27 @@ import { AuditLog } from "./audit.js";
 import { PigeonError, isPigeonError } from "./errors.js";
 import { PolicyEngine } from "./policy.js";
 import { SchemaRegistry } from "./schema.js";
+import { MemoryStore } from "./store.js";
+
+const REQUIRED_ENVELOPE_FIELDS = ["subject", "type", "source", "intent"];
 
 export class PigeonBroker {
-  constructor({ audit = new AuditLog(), policy = new PolicyEngine(), schemas = new SchemaRegistry() } = {}) {
+  constructor({
+    audit = new AuditLog(),
+    policy = new PolicyEngine(),
+    schemas = new SchemaRegistry(),
+    store = new MemoryStore()
+  } = {}) {
     this.audit = audit;
     this.policy = policy;
     this.schemas = schemas;
+    this.store = store;
     this.subjects = new Map();
-    this.messages = new Map();
-    this.idempotency = new Map();
-    this.quarantine = [];
-    this.deliveryCursor = new Map();
   }
 
   registerSubject(subject) {
     this.subjects.set(subject.name, normalizeSubject(subject));
-    this.messages.set(subject.name, []);
+    this.store.initSubject(subject.name);
     this.audit.write("subject.registered", { subject: subject.name, version: subject.version ?? "v1" });
   }
 
@@ -26,7 +31,12 @@ export class PigeonBroker {
     this.audit.write("schema.registered", { schema: name });
   }
 
+  listSubjects() {
+    return [...this.subjects.values()];
+  }
+
   publish(input, context) {
+    validateEnvelope(input);
     const subject = this.getSubject(input.subject);
     const message = normalizeMessage(input);
     const evaluationContext = {
@@ -55,14 +65,11 @@ export class PigeonBroker {
         return { status: "duplicate", message: duplicate };
       }
 
-      const committed = {
+      const committed = this.store.appendMessage(subject.name, {
         ...message,
-        sequence: this.messages.get(subject.name).length + 1,
         acceptedAt: new Date().toISOString(),
         deliveries: []
-      };
-
-      this.messages.get(subject.name).push(committed);
+      });
       this.recordIdempotency(subject, committed);
 
       this.audit.write("publish.accepted", {
@@ -85,9 +92,9 @@ export class PigeonBroker {
     this.policy.assertAllowed("receive", subject, { ...context, region: context.region ?? subject.regionPolicy?.home });
 
     const cursorKey = `${subjectName}:${context.principal.id}`;
-    const start = this.deliveryCursor.get(cursorKey) ?? 0;
-    const available = this.messages.get(subjectName).slice(start, start + max);
-    this.deliveryCursor.set(cursorKey, start + available.length);
+    const start = this.store.getCursor(cursorKey);
+    const available = this.store.listMessages(subjectName).slice(start, start + max);
+    this.store.setCursor(cursorKey, start + available.length);
 
     for (const message of available) {
       message.deliveries.push({
@@ -137,7 +144,7 @@ export class PigeonBroker {
       region: context.region ?? subject.regionPolicy?.home
     });
 
-    const messages = this.messages.get(subjectName)
+    const messages = this.store.listMessages(subjectName)
       .filter((message) => message.sequence >= fromSequence && message.sequence <= toSequence);
 
     this.audit.write("replay.executed", {
@@ -165,7 +172,7 @@ export class PigeonBroker {
   }
 
   listQuarantine() {
-    return [...this.quarantine];
+    return this.store.listQuarantine();
   }
 
   getSubject(name) {
@@ -177,7 +184,7 @@ export class PigeonBroker {
   }
 
   findMessage(subjectName, messageId) {
-    const message = this.messages.get(subjectName)?.find((candidate) => candidate.id === messageId);
+    const message = this.store.findMessage(subjectName, messageId);
     if (!message) {
       throw new PigeonError("MESSAGE_NOT_FOUND", `Message '${messageId}' does not exist on ${subjectName}.`);
     }
@@ -214,12 +221,12 @@ export class PigeonBroker {
     if (!config?.required || !message.idempotencyKey) {
       return null;
     }
-    return this.idempotency.get(`${subject.name}:${message.idempotencyKey}`) ?? null;
+    return this.store.getIdempotent(subject.name, message.idempotencyKey);
   }
 
   recordIdempotency(subject, message) {
     if (message.idempotencyKey) {
-      this.idempotency.set(`${subject.name}:${message.idempotencyKey}`, message);
+      this.store.setIdempotent(subject.name, message.idempotencyKey, message);
     }
   }
 
@@ -238,8 +245,7 @@ export class PigeonBroker {
       (code === "SENSITIVE_FIELD_DENIED" && subject.quarantine?.onPolicyViolation);
 
     if (shouldQuarantine) {
-      this.quarantine.push({
-        id: `quarantine_${this.quarantine.length + 1}`,
+      this.store.addQuarantine({
         subject: subject.name,
         message,
         code,
@@ -254,6 +260,25 @@ export class PigeonBroker {
         code
       });
     }
+  }
+}
+
+function validateEnvelope(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new PigeonError("ENVELOPE_INVALID", "Message envelope must be an object.", { fields: REQUIRED_ENVELOPE_FIELDS });
+  }
+
+  const missing = REQUIRED_ENVELOPE_FIELDS.filter((field) => {
+    const value = input[field];
+    return typeof value !== "string" || value.trim() === "";
+  });
+
+  if (missing.length > 0) {
+    throw new PigeonError(
+      "ENVELOPE_INVALID",
+      `Message envelope is missing required fields: ${missing.join(", ")}.`,
+      { fields: missing }
+    );
   }
 }
 

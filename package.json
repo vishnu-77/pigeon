@@ -32,7 +32,8 @@
     "NOTICE"
   ],
   "scripts": {
-    "demo": "node --preserve-symlinks --preserve-symlinks-main examples/payment-demo.js",
+    "demo": "node --preserve-symlinks --preserve-symlinks-main examples/walkthrough.js",
+    "demo:json": "node --preserve-symlinks --preserve-symlinks-main examples/payment-demo.js",
     "simulate:sender": "node --preserve-symlinks --preserve-symlinks-main examples/container-sender.js",
     "simulate:receiver": "node --preserve-symlinks --preserve-symlinks-main examples/container-receiver.js",
     "start": "node --preserve-symlinks --preserve-symlinks-main src/server.js",
