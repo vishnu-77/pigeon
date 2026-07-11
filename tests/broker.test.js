@@ -1,7 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PigeonBroker, PigeonError } from "../src/index.js";
-import { createPaymentBroker } from "../src/subjects.js";
+import { createPaymentBroker, createDemoBroker } from "../src/subjects.js";
+
+const ordersApi = {
+  principal: { id: "spiffe://merchant-prod/ns/orders/sa/orders-api" },
+  region: "uk"
+};
+
+const notifyReplay = {
+  principal: { id: "spiffe://merchant-prod/ns/ops/sa/notify-replay" },
+  region: "uk"
+};
+
+function notification(overrides = {}) {
+  return {
+    recipientId: "cust_42",
+    channel: "email",
+    templateId: "order_shipped",
+    ...overrides
+  };
+}
+
+function notifyOptions(overrides = {}) {
+  return {
+    intent: "send_notification",
+    idempotencyKey: "cust_42:shipped",
+    classification: "pii",
+    region: "uk",
+    ...overrides
+  };
+}
 
 const checkout = {
   principal: { id: "spiffe://merchant-prod/ns/checkout/sa/checkout-api" },
@@ -121,4 +150,77 @@ test("records audit events for accepted and denied publishes", () => {
   const auditTypes = broker.listAudit().map((record) => record.type);
   assert.ok(auditTypes.includes("publish.accepted"));
   assert.ok(auditTypes.includes("publish.denied"));
+});
+
+test("rejects an envelope missing required fields", () => {
+  const broker = createPaymentBroker(PigeonBroker);
+
+  assert.throws(
+    () => broker.publish({ subject: "payments.authorize" }, checkout),
+    (error) => error instanceof PigeonError && error.code === "ENVELOPE_INVALID"
+  );
+});
+
+test("denies a classification mismatch", () => {
+  const broker = createPaymentBroker(PigeonBroker);
+
+  assert.throws(
+    () => broker.request("payments.authorize", payment(), checkout, requestOptions({ classification: "internal" })),
+    (error) => error instanceof PigeonError && error.code === "CLASSIFICATION_DENIED"
+  );
+});
+
+test("quarantines schema-invalid payloads", () => {
+  const broker = createPaymentBroker(PigeonBroker);
+
+  assert.throws(
+    () => broker.request("payments.authorize", payment({ amount: "not-a-number" }), checkout, requestOptions({ idempotencyKey: "bad_schema:authorize" })),
+    (error) => error instanceof PigeonError && error.code === "SCHEMA_INVALID"
+  );
+
+  assert.equal(broker.listQuarantine().some((record) => record.code === "SCHEMA_INVALID"), true);
+});
+
+test("records an ack for a delivered message", () => {
+  const broker = createPaymentBroker(PigeonBroker);
+  const { message } = broker.request("payments.authorize", payment(), checkout, requestOptions());
+  broker.receive("payments.authorize", gateway, { max: 10 });
+
+  const acked = broker.ack("payments.authorize", message.id, gateway);
+  assert.equal(acked.ackedBy[0].principal, gateway.principal.id);
+  assert.ok(broker.listAudit().some((record) => record.type === "delivery.acked"));
+});
+
+test("lists every registered subject", () => {
+  const broker = createDemoBroker(PigeonBroker);
+  const names = broker.listSubjects().map((subject) => subject.name);
+  assert.deepEqual(names.sort(), ["notifications.send", "payments.authorize"]);
+});
+
+test("allows governed replay on the notifications subject", () => {
+  const broker = createDemoBroker(PigeonBroker);
+  broker.request("notifications.send", notification(), ordersApi, notifyOptions());
+
+  const replayed = broker.replay("notifications.send", notifyReplay, { reason: "resend after outage" });
+  assert.equal(replayed.length, 1);
+  assert.ok(broker.listAudit().some((record) => record.type === "replay.executed"));
+});
+
+test("denies replay when no reason is supplied", () => {
+  const broker = createDemoBroker(PigeonBroker);
+  broker.request("notifications.send", notification(), ordersApi, notifyOptions());
+
+  assert.throws(
+    () => broker.replay("notifications.send", notifyReplay, {}),
+    (error) => error instanceof PigeonError && error.code === "POLICY_DENIED"
+  );
+});
+
+test("forbids raw SSN on the notifications subject", () => {
+  const broker = createDemoBroker(PigeonBroker);
+
+  assert.throws(
+    () => broker.request("notifications.send", notification({ recipient: { ssn: "078-05-1120" } }), ordersApi, notifyOptions({ idempotencyKey: "leak:1" })),
+    (error) => error instanceof PigeonError && error.code === "SENSITIVE_FIELD_DENIED"
+  );
 });
