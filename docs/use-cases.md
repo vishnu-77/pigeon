@@ -8,6 +8,10 @@ The common shape is always the same: declare a **subject**, attach **policy**, a
 the broker enforce it on every publish and delivery. Below are concrete places this
 pays off, each with a subject sketch you can adapt.
 
+> **See it in action:** run `npm start` and open `http://localhost:8787/` for the
+> **Acme Checkout** dashboard - a live e-commerce flow (order → authorize payment → notify)
+> that drives the real broker and streams the audit trail as gates pass, deny, and quarantine.
+
 ## Quick index
 
 | Use case | Why Pigeon | Subject mode |
