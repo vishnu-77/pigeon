@@ -1,7 +1,7 @@
 # Where & How to Use Pigeon
 
 Pigeon fits anywhere a message is not "just data from A to B" but a **governed
-operation** — where *who* sent it, *what* it is allowed to do, *where* it may travel,
+operation** - where *who* sent it, *what* it is allowed to do, *where* it may travel,
 and *whether it can be retried or replayed* all matter.
 
 The common shape is always the same: declare a **subject**, attach **policy**, and let
@@ -30,7 +30,7 @@ land in a message log; auditors need proof of every decision.
 **With Pigeon:** only `checkout-api` can publish `authorize_payment`; only the gateway
 adapter can receive; an idempotency key is mandatory (retries return the original);
 `card.pan` is a forbidden field (denied + quarantined); replay is disabled; every
-accept/deny/retry is audited. This is the built-in demo — run `npm run demo`.
+accept/deny/retry is audited. This is the built-in demo - run `npm run demo`.
 
 ```yaml
 name: payments.authorize
@@ -49,7 +49,7 @@ leak into downstream systems.
 **With Pigeon:** the subject pins `allowedRegions` and `crossRegion: deny`, so a
 message tagged `region: us` is refused at admission. Sensitive fields
 (`recipient.ssn`) are forbidden and quarantined as evidence. This is the shipped
-`notifications.send` subject — see it in `npm run demo`.
+`notifications.send` subject - see it in `npm run demo`.
 
 ```yaml
 name: notifications.send
@@ -96,7 +96,7 @@ policy:
 
 ## 5. Governed async RPC / commands
 
-**Problem:** a command like `refund_payment` or `terminate_instance` is dangerous —
+**Problem:** a command like `refund_payment` or `terminate_instance` is dangerous -
 it must be idempotent, come from an authorized caller, and be traceable.
 
 **With Pigeon:** request/reply mode with a required idempotency key gives effect-safe
@@ -112,7 +112,7 @@ delivery: { idempotency: { required: true } }
 
 ## 6. Audit & compliance evidence
 
-**Problem:** "show me who sent what, when, and why it was allowed" — without scraping
+**Problem:** "show me who sent what, when, and why it was allowed" - without scraping
 application logs.
 
 **With Pigeon:** the audit log is a separate, immutable stream of governance events
@@ -123,10 +123,10 @@ and policy version. Query it over HTTP: `GET /v1/audit`, `GET /v1/quarantine`.
 ## 7. Reliable work queues
 
 **Problem:** background jobs need bounded retries, and re-processing after an outage
-must be a controlled, audited action — not an ad-hoc script.
+must be a controlled, audited action - not an ad-hoc script.
 
 **With Pigeon:** work-queue mode gives competing consumers with delivery cursors and
-acks; retry policy is declared on the subject; **replay is governed** — only an ops
+acks; retry policy is declared on the subject; **replay is governed** - only an ops
 principal with a stated reason can re-emit a window, and it is audited.
 
 ```yaml
@@ -145,7 +145,7 @@ policy:
 ## How to adopt it incrementally
 
 1. **Model one subject.** Pick your riskiest message (a payment, a refund, a PII
-   event) and declare it as a subject with real policy — see `src/subjects.js`.
+   event) and declare it as a subject with real policy - see `src/subjects.js`.
 2. **Front it with Pigeon.** Point producers/consumers at the HTTP API
    (`POST /v1/messages`, `POST /v1/subjects/:name/receive`). Keep your existing
    broker for everything else.

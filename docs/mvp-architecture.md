@@ -13,7 +13,7 @@ flowchart LR
   Sender["SENDER<br/>checkout-api"]
   Receiver["RECEIVER<br/>gateway-adapter"]
 
-  subgraph Broker["Pigeon Broker — admission gates"]
+  subgraph Broker["Pigeon Broker - admission gates"]
     direction TB
     G1["identity"] --> G2["intent"] --> G3["schema"] --> G4["region"] --> G5["sensitivity"] --> G6["idempotency"] --> G7["append"] --> G8["audit"]
   end
