@@ -138,7 +138,12 @@ confirmation is published on `notifications.send`, and both are delivered - whil
 | **Leak card PAN** | Raw `card.pan` is denied and **quarantined** as evidence (`422`). |
 | **Wrong region (us)** | Out-of-region publish is denied. |
 
-The dashboard drives the real HTTP API on the same origin - nothing is faked.
+The dashboard shows every **message sent and received** (click a row to inspect the
+envelope) and streams the audit trail live. It drives the real HTTP API on the same origin -
+nothing is faked.
+
+For integrating from your own app, the broker also serves a versioned **API reference with a
+live "Try it"** at `http://localhost:8787/docs`.
 
 ## Using Pigeon in your app
 

@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pigeon API v1 - reference</title>
+<style>
+  :root{
+    --background:240 10% 3.9%; --card:240 8% 6%; --card2:240 7% 9%;
+    --border:240 4% 15%; --muted:240 4% 14%; --muted-foreground:240 5% 65%;
+    --foreground:0 0% 98%; --primary:0 0% 98%; --primary-foreground:240 6% 10%;
+    --accent:240 4% 14%; --ring:240 5% 70%;
+    --success:142 71% 45%; --warning:38 92% 50%; --destructive:0 72% 51%;
+    --quarantine:280 65% 66%; --info:210 90% 62%;
+    --radius:.65rem;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:hsl(var(--background));color:hsl(var(--foreground));
+    font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  code,pre,.mono{font-family:var(--mono)}
+  .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:16px;
+    padding:12px 24px;border-bottom:1px solid hsl(var(--border));
+    background:hsl(var(--background)/.85);backdrop-filter:blur(8px)}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.3px}
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:hsl(var(--warning));
+    box-shadow:0 0 8px hsl(var(--warning))}
+  .nav a{padding:6px 10px;border-radius:calc(var(--radius) - 3px);color:hsl(var(--muted-foreground));
+    text-decoration:none;font-size:13px}
+  .nav a:hover{background:hsl(var(--accent));color:hsl(var(--foreground))}
+  .nav a.active{color:hsl(var(--foreground));background:hsl(var(--accent))}
+  .nav .spacer{margin-left:auto}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 24px 80px}
+  h1{font-size:26px;margin:8px 0 4px;letter-spacing:-.3px}
+  .lede{color:hsl(var(--muted-foreground));margin:0 0 20px;max-width:70ch}
+  .badge{display:inline-flex;align-items:center;gap:5px;border:1px solid hsl(var(--border));
+    border-radius:999px;padding:2px 9px;font:600 11px var(--mono);color:hsl(var(--muted-foreground));
+    background:hsl(var(--card2))}
+  .badge.v{color:hsl(var(--warning));border-color:hsl(var(--warning)/.4)}
+  .badge.get{color:hsl(var(--info));border-color:hsl(var(--info)/.4)}
+  .badge.post{color:hsl(var(--warning));border-color:hsl(var(--warning)/.4)}
+  .badge.ok{color:hsl(var(--success));border-color:hsl(var(--success)/.4)}
+  .badge.err{color:hsl(var(--destructive));border-color:hsl(var(--destructive)/.4)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .card{border:1px solid hsl(var(--border));border-radius:var(--radius);background:hsl(var(--card));
+    margin:14px 0;overflow:hidden}
+  .card > .head{padding:14px 18px;border-bottom:1px solid hsl(var(--border));display:flex;
+    align-items:center;gap:10px;flex-wrap:wrap}
+  .card .path{font:600 14px var(--mono);color:hsl(var(--foreground))}
+  .card .body{padding:16px 18px}
+  .desc{color:hsl(var(--muted-foreground));margin:0 0 12px}
+  .label{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:hsl(var(--muted-foreground));
+    margin:14px 0 6px;font-weight:600}
+  pre{margin:0;background:hsl(var(--card2));border:1px solid hsl(var(--border));
+    border-radius:calc(var(--radius) - 3px);padding:12px 14px;overflow:auto;font-size:12.5px;line-height:1.55}
+  pre .k{color:hsl(var(--info))}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid hsl(var(--border));vertical-align:top}
+  th{color:hsl(var(--muted-foreground));font-weight:600;font-size:11px;letter-spacing:.6px;text-transform:uppercase}
+  td.code{font-family:var(--mono);white-space:nowrap}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;
+    border-radius:calc(var(--radius) - 2px);font:600 13px var(--sans);border:1px solid transparent;
+    cursor:pointer;transition:.15s;user-select:none}
+  .btn:focus-visible{outline:2px solid hsl(var(--ring));outline-offset:2px}
+  .btn.primary{background:hsl(var(--primary));color:hsl(var(--primary-foreground))}
+  .btn.primary:hover{opacity:.9}
+  .btn.outline{background:transparent;border-color:hsl(var(--border));color:hsl(var(--foreground))}
+  .btn.outline:hover{background:hsl(var(--accent))}
+  .try{margin-top:14px;border:1px dashed hsl(var(--border));border-radius:calc(var(--radius) - 2px);
+    padding:14px;background:hsl(var(--card2)/.5)}
+  .try .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .field{display:flex;flex-direction:column;gap:4px;font-size:11px;color:hsl(var(--muted-foreground))}
+  input,textarea{background:hsl(var(--background));color:hsl(var(--foreground));
+    border:1px solid hsl(var(--border));border-radius:calc(var(--radius) - 3px);
+    padding:8px 10px;font:13px var(--mono)}
+  input{min-width:280px}
+  textarea{width:100%;min-height:130px;resize:vertical}
+  .out{margin-top:10px}
+  .out pre{max-height:280px}
+  .status{font:600 12px var(--mono);margin-bottom:6px}
+  .muted{color:hsl(var(--muted-foreground))}
+  .toc{position:sticky;top:70px}
+  footer{max-width:920px;margin:0 auto;padding:24px;color:hsl(var(--muted-foreground));font-size:12px;
+    border-top:1px solid hsl(var(--border))}
+  footer a{color:hsl(var(--warning))}
+</style>
+</head>
+<body>
+<div class="nav">
+  <span class="brand"><span class="dot"></span>Pigeon</span>
+  <a href="/">Dashboard</a>
+  <a href="/docs" class="active">API docs</a>
+  <span class="spacer"></span>
+  <span class="badge v">API v1</span>
+  <span class="badge" id="health">checking...</span>
+</div>
+
+<div class="wrap">
+  <h1>Pigeon HTTP API</h1>
+  <p class="lede">
+    Governed messaging over HTTP. The API is <b>versioned by path</b> - every resource lives
+    under <code>/v1</code>; a future breaking change ships as <code>/v2</code> so existing
+    clients keep working. Every call carries the caller's identity and region as headers, and
+    the broker enforces the subject's policy on each publish and receive.
+  </p>
+
+  <div class="grid2">
+    <div class="card"><div class="body">
+      <div class="label">Base URL</div>
+      <pre id="baseurl" class="mono">-</pre>
+      <div class="label">Identity headers</div>
+      <pre class="mono"><span class="k">x-pigeon-principal</span>: spiffe://.../sa/your-service
+<span class="k">x-pigeon-region</span>:    uk</pre>
+    </div></div>
+    <div class="card"><div class="body">
+      <div class="label">Error shape</div>
+      <pre class="mono">{
+  "error": {
+    "code": "POLICY_DENIED",
+    "message": "...",
+    "details": {}
+  }
+}</pre>
+      <p class="desc" style="margin:10px 0 0">Codes map to HTTP status: <code>403</code> policy/
+      region/intent, <code>422</code> validation/sensitive-field, <code>400</code> malformed,
+      <code>404</code> unknown subject, <code>413</code> too large, <code>405</code> wrong method.</p>
+    </div></div>
+  </div>
+
+  <div id="endpoints"></div>
+</div>
+
+<footer>
+  Served by the running Pigeon broker. Source:
+  <a href="https://github.com/vishnu-77/pigeon">github.com/vishnu-77/pigeon</a>.
+  Try-it calls hit this origin and are governed for real.
+</footer>
+
+<script>
+const ORIGIN = location.origin;
+document.getElementById("baseurl").textContent = ORIGIN;
+
+const CHECKOUT = "spiffe://merchant-prod/ns/checkout/sa/checkout-api";
+const GATEWAY  = "spiffe://merchant-prod/ns/payments/sa/gateway-adapter";
+
+const ENVELOPE = {
+  subject: "payments.authorize",
+  type: "payment.authorization.requested",
+  source: "checkout-service",
+  intent: "authorize_payment",
+  idempotencyKey: "order_456:authorize",
+  classification: "pci",
+  region: "uk",
+  data: { merchantId: "merchant_123", orderId: "order_456", amount: 42.5, currency: "GBP", paymentToken: "tok_visa_abc" }
+};
+
+const endpoints = [
+  {
+    method:"GET", path:"/health", kind:"get",
+    desc:"Liveness probe. No auth required.",
+    codes:[["200","service is up"]],
+    sample:{ ok:true, service:"pigeon" }
+  },
+  {
+    method:"GET", path:"/v1/subjects", kind:"get",
+    desc:"List every registered subject with a governance summary (mode, intents, classification, regions, idempotency, replay).",
+    codes:[["200","subject list"]],
+    sample:{ subjects:[{ name:"payments.authorize", mode:"requestReply", intents:["authorize_payment"], classification:"pci", regions:["uk","eu"], idempotencyRequired:true, replayAllowed:false }] }
+  },
+  {
+    method:"GET", path:"/v1/subjects/:name", kind:"describe",
+    desc:"Full descriptor for one subject (policy, schema, retention, quarantine rules).",
+    codes:[["200","subject descriptor"],["404","unknown subject"]],
+    sample:{ subject:{ name:"payments.authorize", mode:"requestReply", replay:{ allowed:false } } }
+  },
+  {
+    method:"POST", path:"/v1/messages", kind:"publish",
+    desc:"Publish a message to its subject. The broker checks identity, intent, schema, region, sensitive fields and idempotency before it is committed.",
+    headers:true, body:ENVELOPE,
+    codes:[["202","accepted"],["200","duplicate (idempotent retry)"],["403","policy / region / intent denied"],["422","schema / sensitive field / envelope invalid"],["404","unknown subject"]],
+    sample:{ status:"accepted", message:{ id:"msg_...", sequence:1, intent:"authorize_payment" } }
+  },
+  {
+    method:"POST", path:"/v1/subjects/:name/receive", kind:"receive",
+    desc:"Pull authorized messages as a consumer. Advances the caller's delivery cursor.",
+    headers:true, body:{ max:10 },
+    codes:[["200","messages (possibly empty)"],["403","not allowed to receive"],["404","unknown subject"]],
+    sample:{ messages:[{ id:"msg_...", sequence:1, data:{ orderId:"order_456" } }] }
+  },
+  {
+    method:"GET", path:"/v1/audit", kind:"get",
+    desc:"The immutable audit trail of governance events.",
+    codes:[["200","audit records"]],
+    sample:{ records:[{ type:"publish.accepted", subject:"payments.authorize" }] }
+  },
+  {
+    method:"GET", path:"/v1/quarantine", kind:"get",
+    desc:"Quarantined messages held as evidence (schema/sensitive-field violations).",
+    codes:[["200","quarantine records"]],
+    sample:{ records:[{ code:"SENSITIVE_FIELD_DENIED", subject:"payments.authorize" }] }
+  }
+];
+
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function pretty(o){ return esc(JSON.stringify(o,null,2)); }
+function slug(p){ return p.replace(/[^a-z0-9]+/gi,"-"); }
+
+function curlFor(e){
+  const url = ORIGIN + e.path.replace(":name","payments.authorize");
+  if(e.method === "GET") return `curl ${url}`;
+  const hdr = `-H "content-type: application/json" \\\n  -H "x-pigeon-principal: ${e.kind==="receive"?GATEWAY:CHECKOUT}" \\\n  -H "x-pigeon-region: uk"`;
+  return `curl -X POST ${url} \\\n  ${hdr} \\\n  -d '${JSON.stringify(e.body)}'`;
+}
+
+function render(){
+  const root = document.getElementById("endpoints");
+  root.innerHTML = endpoints.map(e => {
+    const id = slug(e.path + e.method);
+    const codes = e.codes.map(([c,m]) =>
+      `<tr><td class="code">${c}</td><td class="muted">${m}</td></tr>`).join("");
+    const headers = e.headers ? `<div class="label">Headers</div><pre class="mono"><span class="k">x-pigeon-principal</span>: ${e.kind==="receive"?GATEWAY:CHECKOUT}
+<span class="k">x-pigeon-region</span>:    uk
+<span class="k">content-type</span>:      application/json</pre>` : "";
+    const body = e.body ? `<div class="label">Request body</div><pre class="mono">${pretty(e.body)}</pre>` : "";
+    const nameField = e.kind==="describe" || e.kind==="receive"
+      ? `<label class="field">subject<input data-name="${id}" value="payments.authorize"></label>` : "";
+    const principalField = e.headers
+      ? `<label class="field">x-pigeon-principal<input data-principal="${id}" value="${e.kind==="receive"?GATEWAY:CHECKOUT}"></label>
+         <label class="field">x-pigeon-region<input data-region="${id}" value="uk" style="min-width:80px"></label>` : "";
+    const bodyField = e.body
+      ? `<div class="label">body (editable)</div><textarea data-body="${id}">${pretty(e.body)}</textarea>` : "";
+    return `<div class="card" id="${id}">
+      <div class="head">
+        <span class="badge ${e.method.toLowerCase()}">${e.method}</span>
+        <span class="path">${e.path}</span>
+      </div>
+      <div class="body">
+        <p class="desc">${e.desc}</p>
+        ${headers}
+        ${body}
+        <div class="label">Example response</div>
+        <pre class="mono">${pretty(e.sample)}</pre>
+        <div class="label">Status codes</div>
+        <table><thead><tr><th>code</th><th>meaning</th></tr></thead><tbody>${codes}</tbody></table>
+        <div class="label">curl</div>
+        <pre class="mono">${esc(curlFor(e))}</pre>
+        <div class="try">
+          <div class="row">
+            ${nameField}${principalField}
+            <button class="btn primary" onclick="runTry('${id}')" style="align-self:flex-end">Try it</button>
+          </div>
+          ${bodyField}
+          <div class="out" id="out-${id}"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function val(attr,id){ const el=document.querySelector(`[data-${attr}="${id}"]`); return el?el.value.trim():""; }
+
+async function runTry(id){
+  const e = endpoints.find(x => slug(x.path + x.method) === id);
+  const out = document.getElementById("out-"+id);
+  out.innerHTML = `<div class="status muted">calling...</div>`;
+  let path = e.path;
+  if(e.kind==="describe" || e.kind==="receive") path = path.replace(":name", encodeURIComponent(val("name",id) || "payments.authorize"));
+  const opts = { method:e.method, headers:{} };
+  if(e.headers){
+    opts.headers["content-type"]="application/json";
+    opts.headers["x-pigeon-principal"]=val("principal",id);
+    opts.headers["x-pigeon-region"]=val("region",id) || "uk";
+    try{ opts.body = JSON.stringify(JSON.parse(val("body",id))); }
+    catch(err){ out.innerHTML = `<div class="status err">invalid JSON in body: ${esc(err.message)}</div>`; return; }
+  }
+  try{
+    const res = await fetch(ORIGIN+path, opts);
+    let json; try{ json = await res.json(); }catch{ json = {}; }
+    const ok = res.status < 400;
+    out.innerHTML = `<div class="status ${ok?"":"err"}">
+      <span class="badge ${ok?"ok":"err"}">${res.status}</span> ${e.method} ${path}</div>
+      <pre class="mono">${pretty(json)}</pre>`;
+  }catch(err){
+    out.innerHTML = `<div class="status err">request failed: ${esc(err.message)} (is the broker running?)</div>`;
+  }
+}
+
+async function health(){
+  const el = document.getElementById("health");
+  try{
+    const r = await fetch(ORIGIN+"/health");
+    el.textContent = r.ok ? "broker online" : "broker error";
+    el.className = "badge " + (r.ok ? "ok" : "err");
+  }catch{ el.textContent = "broker offline"; el.className="badge err"; }
+}
+
+render();
+health();
+setInterval(health, 5000);
+</script>
+</body>
+</html>
