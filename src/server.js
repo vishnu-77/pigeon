@@ -1,14 +1,23 @@
 import http from "node:http";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { PigeonBroker } from "./broker.js";
 import { createDemoBroker } from "./subjects.js";
 import { isPigeonError, PigeonError } from "./errors.js";
 
 const MAX_BODY_BYTES = 1_048_576; // 1 MiB
 
+const DASHBOARD = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "..", "examples", "dashboard.html"),
+  "utf8"
+);
+
 // Route table. Path patterns are matched first; a path match with the wrong
 // method yields 405 instead of falling through to 404.
 const routes = [
+  { method: "GET", pattern: /^\/$/, handler: dashboard },
+  { method: "GET", pattern: /^\/dashboard$/, handler: dashboard },
   { method: "GET", pattern: /^\/health$/, handler: health },
   { method: "GET", pattern: /^\/v1\/subjects$/, handler: listSubjects },
   { method: "GET", pattern: /^\/v1\/subjects\/([^/]+)$/, handler: describeSubject },
@@ -48,6 +57,11 @@ export function createPigeonServer(broker = createDemoBroker(PigeonBroker)) {
       });
     }
   });
+}
+
+function dashboard({ response }) {
+  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  response.end(DASHBOARD);
 }
 
 function health({ response }) {

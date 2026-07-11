@@ -79,9 +79,9 @@ More diagrams (admission, retry/idempotency, delivery, quarantine, replay) are i
 Requires **Node.js ≥ 22**. No install step, no runtime dependencies.
 
 ```bash
-npm test         # 35 tests across broker, store, and HTTP server
+npm test         # 36 tests across broker, store, and HTTP server
 npm run demo     # narrated sender → broker → receiver walkthrough
-npm start        # HTTP broker on http://localhost:8787
+npm start        # HTTP broker + Acme Checkout dashboard on http://localhost:8787
 ```
 
 `npm run demo` prints the whole governed flow as a transmit between principals, with
@@ -115,6 +115,30 @@ each policy gate visible:
    BROKER    ──▶ RECEIVER   gateway-adapter receives payments.authorize
    DELIVERED 1 message(s): order_456
 ```
+
+## See it in action (Acme Checkout)
+
+The broker also serves a zero-dependency **live dashboard** that shows Pigeon governing a
+real application - an e-commerce checkout:
+
+```bash
+npm start                     # then open http://localhost:8787/
+```
+
+Click **Place order** and watch a message travel `ORDER SERVICE → PIGEON BROKER → RECEIVERS`:
+the six policy gates light up, the payment is authorized on `payments.authorize`, an order
+confirmation is published on `notifications.send`, and both are delivered - while the
+**audit trail streams live**. The scenario buttons show governance in the failure cases too:
+
+| Button | What the broker does |
+| --- | --- |
+| **Place order** | Authorize payment, then send confirmation; all gates pass, both delivered. |
+| **Retry same order** | Same idempotency key → `DUPLICATE`, no double charge. |
+| **Unauthorized service** | A different workload is denied at the identity gate (`403`). |
+| **Leak card PAN** | Raw `card.pan` is denied and **quarantined** as evidence (`422`). |
+| **Wrong region (us)** | Out-of-region publish is denied. |
+
+The dashboard drives the real HTTP API on the same origin - nothing is faked.
 
 ## Where & how to use it
 
