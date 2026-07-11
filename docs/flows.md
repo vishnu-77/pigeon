@@ -120,11 +120,13 @@ flowchart TD
   Execute --> Audit["Audit replay.executed"]
 ```
 
-## Where To Show These
+## Related docs
 
-Use these diagrams in:
+- [../README.md](../README.md) — product overview, quickstart, HTTP API.
+- [mvp-architecture.md](mvp-architecture.md) — tagged transmit path and component view.
+- [vision.md](vision.md) — the north-star design, positioning, and roadmap.
+- [use-cases.md](use-cases.md) — where and how to apply Pigeon, with subject sketches.
+- [local-container-simulation.md](local-container-simulation.md) — the networked sender/broker/receiver demo.
 
-1. `README.md` for the short product explanation.
-2. `docs/flows.md` for engineering and architecture details.
-3. GitHub project page or docs site because Mermaid renders directly.
-4. Demo scripts or talks to explain why a payment authorization is not just a message from A to B.
+These diagrams render directly on GitHub (Mermaid), so they double as talk/demo
+material for explaining why a payment authorization is not just a message from A to B.
