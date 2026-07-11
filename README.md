@@ -1,7 +1,7 @@
 # Pigeon
 
 <p align="center">
-  <img src="docs/assets/pigeon-dotmatrix.svg" width="100%" alt="Pigeon — governed communication">
+  <img src="assets/pigeon-banner.svg" width="100%" alt="Pigeon — governed communication">
 </p>
 
 [![CI](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml/badge.svg)](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml)
