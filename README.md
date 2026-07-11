@@ -140,6 +140,97 @@ confirmation is published on `notifications.send`, and both are delivered - whil
 
 The dashboard drives the real HTTP API on the same origin - nothing is faked.
 
+## Using Pigeon in your app
+
+Pigeon can be used two ways. Either way the model is the same: declare a **subject** with
+its policy once, then producers publish and consumers receive - the broker enforces the
+rules on every message.
+
+### As a library (in-process, Node)
+
+```js
+import { PigeonBroker } from "pigeon";
+
+const broker = new PigeonBroker();
+
+// 1. Declare the data shape
+broker.registerSchema("order.placed.v1", {
+  type: "object",
+  required: ["orderId", "amount"],
+  properties: { orderId: { type: "string" }, amount: { type: "number" } }
+});
+
+// 2. Declare the subject: the governed channel plus its policy
+broker.registerSubject({
+  name: "orders.placed",
+  mode: "pubsub",
+  intents: ["place_order"],
+  schema: { name: "order.placed.v1" },
+  regionPolicy: { home: "uk", allowedRegions: ["uk", "eu"] },
+  delivery: { idempotency: { required: true } },
+  data: { classification: "internal", forbiddenFields: ["customer.ssn"] },
+  quarantine: { onSchemaViolation: true, onPolicyViolation: true },
+  policy: {
+    publish: [{ effect: "allow", principals: ["spiffe://shop/ns/checkout/sa/api"],
+                intents: ["place_order"], regions: ["uk", "eu"] }],
+    receive: [{ effect: "allow", principals: ["spiffe://shop/ns/fulfil/sa/worker"],
+                regions: ["uk", "eu"] }]
+  }
+});
+
+// 3. Producer: identity and region travel with the call
+const checkout = { principal: { id: "spiffe://shop/ns/checkout/sa/api" }, region: "uk" };
+broker.request("orders.placed", { orderId: "o_1", amount: 42.5 }, checkout, {
+  intent: "place_order", idempotencyKey: "o_1:place", classification: "internal", region: "uk"
+});
+
+// 4. Consumer: receives only what it is authorized for
+const worker = { principal: { id: "spiffe://shop/ns/fulfil/sa/worker" }, region: "uk" };
+const messages = broker.receive("orders.placed", worker, { max: 10 });
+```
+
+A disallowed intent, a forbidden field, or a wrong region makes `publish` throw a
+`PigeonError`, and the attempt is audited (and quarantined where configured). The rules
+live on the subject, not scattered across your services. See `src/subjects.js` for a fuller
+worked example.
+
+### As a standalone broker (any language, over HTTP)
+
+Run Pigeon as a service (`npm start` or `docker compose up`) and have your services call it
+over HTTP, passing identity and region as headers:
+
+```bash
+# Producer
+curl -X POST http://broker:8787/v1/messages \
+  -H "x-pigeon-principal: spiffe://shop/ns/checkout/sa/api" \
+  -H "x-pigeon-region: uk" \
+  -d '{ "subject":"orders.placed","type":"order.placed","source":"checkout",
+        "intent":"place_order","idempotencyKey":"o_1:place","region":"uk",
+        "data":{ "orderId":"o_1","amount":42.5 } }'
+
+# Consumer
+curl -X POST http://broker:8787/v1/subjects/orders.placed/receive \
+  -H "x-pigeon-principal: spiffe://shop/ns/fulfil/sa/worker" \
+  -d '{ "max": 10 }'
+```
+
+See the [HTTP API](#http-api) for the full endpoint list; the Acme Checkout dashboard above
+is exactly this pattern from the browser.
+
+### Installing today
+
+Pigeon is a pre-1.0 MVP and is not on npm yet. Use it by:
+
+```bash
+npm install github:vishnu-77/pigeon                 # add as a git dependency
+# or
+git clone https://github.com/vishnu-77/pigeon.git   # run the HTTP / Docker broker
+```
+
+Current MVP limits: storage is in-memory and single-node, and identity is passed via
+`x-pigeon-*` headers. Durable storage and SPIFFE mTLS are on the
+[roadmap](docs/vision.md#roadmap).
+
 ## Where & how to use it
 
 Pigeon fits anywhere a message is a *governed operation*, not just data.
