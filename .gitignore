@@ -20,6 +20,10 @@ outputs/
 .env.*
 !.env.example
 
+# Verification / screenshot artifacts (the banner ships as .svg)
+*.png
+.playwright-mcp/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db

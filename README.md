@@ -1,5 +1,9 @@
 # Pigeon
 
+<p align="center">
+  <img src="docs/assets/pigeon-dotmatrix.svg" width="100%" alt="Pigeon — governed communication">
+</p>
+
 [![CI](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml/badge.svg)](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](.nvmrc)

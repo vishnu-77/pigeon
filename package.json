@@ -37,6 +37,7 @@
     "simulate:sender": "node --preserve-symlinks --preserve-symlinks-main examples/container-sender.js",
     "simulate:receiver": "node --preserve-symlinks --preserve-symlinks-main examples/container-receiver.js",
     "start": "node --preserve-symlinks --preserve-symlinks-main src/server.js",
+    "build:banner": "node scripts/build-banner.js",
     "test": "node --preserve-symlinks --preserve-symlinks-main --test"
   },
   "engines": {
