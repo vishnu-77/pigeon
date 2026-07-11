@@ -50,6 +50,13 @@ test("serves the Acme Checkout dashboard at /", async () => {
   assert.match(await response.text(), /ACME CHECKOUT/);
 });
 
+test("serves the API docs at /docs", async () => {
+  const response = await fetch(`${base}/docs`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /text\/html/);
+  assert.match(await response.text(), /\/v1\/messages/);
+});
+
 test("health check responds ok", async () => {
   const response = await fetch(`${base}/health`);
   assert.equal(response.status, 200);
