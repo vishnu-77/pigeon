@@ -1,0 +1,49 @@
+name: pigeon
+
+services:
+  pigeon-broker:
+    build: .
+    image: pigeon-broker:local
+    container_name: pigeon-broker
+    ports:
+      - "8787:8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    networks:
+      - pigeon-local
+
+  checkout-sender:
+    build: .
+    image: pigeon-checkout-sender:local
+    container_name: pigeon-checkout-sender
+    command: ["node", "--preserve-symlinks", "--preserve-symlinks-main", "examples/container-sender.js"]
+    environment:
+      PIGEON_URL: "http://pigeon-broker:8787"
+      SENDER_HOLD_OPEN: "true"
+    depends_on:
+      pigeon-broker:
+        condition: service_healthy
+    networks:
+      - pigeon-local
+
+  gateway-receiver:
+    build: .
+    image: pigeon-gateway-receiver:local
+    container_name: pigeon-gateway-receiver
+    command: ["node", "--preserve-symlinks", "--preserve-symlinks-main", "examples/container-receiver.js"]
+    environment:
+      PIGEON_URL: "http://pigeon-broker:8787"
+    depends_on:
+      pigeon-broker:
+        condition: service_healthy
+      checkout-sender:
+        condition: service_started
+    networks:
+      - pigeon-local
+
+networks:
+  pigeon-local:
+    name: pigeon-local

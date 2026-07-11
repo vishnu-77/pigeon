@@ -1,0 +1,45 @@
+{
+  "name": "pigeon",
+  "version": "0.1.0",
+  "description": "Policy-native messaging prototype: messages carry intent, subjects carry policy, brokers enforce guarantees.",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "pigeon": "src/cli.js"
+  },
+  "keywords": [
+    "messaging",
+    "policy",
+    "broker",
+    "cloudevents",
+    "governance",
+    "idempotency",
+    "audit"
+  ],
+  "author": "vishnu-77",
+  "homepage": "https://github.com/vishnu-77/pigeon#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vishnu-77/pigeon.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vishnu-77/pigeon/issues"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "demo": "node --preserve-symlinks --preserve-symlinks-main examples/payment-demo.js",
+    "simulate:sender": "node --preserve-symlinks --preserve-symlinks-main examples/container-sender.js",
+    "simulate:receiver": "node --preserve-symlinks --preserve-symlinks-main examples/container-receiver.js",
+    "start": "node --preserve-symlinks --preserve-symlinks-main src/server.js",
+    "test": "node --preserve-symlinks --preserve-symlinks-main --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0"
+}
