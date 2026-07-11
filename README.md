@@ -1,14 +1,14 @@
 # Pigeon
 
 <p align="center">
-  <img src="assets/pigeon-banner.svg" width="100%" alt="Pigeon — governed communication">
+  <img src="assets/pigeon-banner.svg" width="100%" alt="Pigeon - governed communication">
 </p>
 
 [![CI](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml/badge.svg)](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](.nvmrc)
 
-**Pigeon is policy-native messaging** — an async communication layer where *delivery
+**Pigeon is policy-native messaging** - an async communication layer where *delivery
 semantics and governance semantics are the same contract*.
 
 ```text
@@ -20,7 +20,7 @@ Brokers enforce guarantees.
 A producer doesn't just publish bytes to `payments.authorize`. It submits an
 intent-bound operation to a **governed subject** whose policy decides who may send,
 who may receive, how retries work, whether replay is legal, where data may move, and
-what must be audited — enforced by the broker on every message.
+what must be audited - enforced by the broker on every message.
 
 This repo is a **dependency-free, single-node MVP** of that model, complete with a
 runnable payment-authorization demo, a work-queue demo, an HTTP API, and a
@@ -30,14 +30,14 @@ three-container network simulation.
 
 ## The problem
 
-Most brokers move bytes from A to B. Governance — *who is allowed to send this? can
-it leave the region? is this a retry or a real second charge? who received it?* —
+Most brokers move bytes from A to B. Governance - *who is allowed to send this? can
+it leave the region? is this a retry or a real second charge? who received it?* -
 gets bolted on later as sidecars, client libraries, and tribal knowledge. It drifts,
 and nobody can prove what was enforced.
 
 ## What Pigeon guarantees
 
-At admission and at delivery, the broker enforces — per subject — identity, intent,
+At admission and at delivery, the broker enforces - per subject - identity, intent,
 schema, region/residency, data classification, forbidden sensitive fields, mandatory
 idempotency, duplicate suppression, governed replay, quarantine of violations, and an
 immutable audit trail. Every accept and deny is recorded.
@@ -52,7 +52,7 @@ flowchart LR
   Sender["SENDER<br/>checkout-api"]
   Receiver["RECEIVER<br/>gateway-adapter"]
 
-  subgraph Broker["Pigeon Broker — admission gates"]
+  subgraph Broker["Pigeon Broker - admission gates"]
     direction TB
     G1["identity"] --> G2["intent"] --> G3["schema"] --> G4["region"] --> G5["sensitivity"] --> G6["idempotency"] --> G7["append"] --> G8["audit"]
   end
@@ -99,16 +99,16 @@ each policy gate visible:
    ACCEPTED msg_… · seq 1
 
 2. Retry with the same idempotency key (no double charge)
-   SENDER    ──▶ BROKER     publish authorize_payment (order_456) — retry
+   SENDER    ──▶ BROKER     publish authorize_payment (order_456) - retry
    DUPLICATE returned original msg_…
 
 3. Unauthorized producer is denied at admission
    ATTACKER  ──▶ BROKER     publish authorize_payment (order_789)
-   DENIED POLICY_DENIED — catalog-api is not allowed to publish on payments.authorize.
+   DENIED POLICY_DENIED - catalog-api is not allowed to publish on payments.authorize.
 
 4. Raw card PAN is denied and quarantined as evidence
    SENDER    ──▶ BROKER     publish authorize_payment with card.pan
-   DENIED SENSITIVE_FIELD_DENIED — card.pan is forbidden on payments.authorize.
+   DENIED SENSITIVE_FIELD_DENIED - card.pan is forbidden on payments.authorize.
    QUARANTINED envelope held as forensic evidence
 
 5. Receiver pulls only the authorized message
@@ -202,7 +202,7 @@ curl -X POST http://localhost:8787/v1/subjects/payments.authorize/receive \
 
 ## Container simulation
 
-Run the real cross-container network — a sender and receiver that talk *only* through
+Run the real cross-container network - a sender and receiver that talk *only* through
 the broker over a Docker network:
 
 ```bash
@@ -220,17 +220,17 @@ Details and the automated one-shot run are in
 
 | Path | Responsibility |
 | --- | --- |
-| `src/broker.js` | `PigeonBroker` — admission, delivery, replay, ack, quarantine. |
+| `src/broker.js` | `PigeonBroker` - admission, delivery, replay, ack, quarantine. |
 | `src/policy.js` | Principal / intent / region / attribute rule evaluation. |
 | `src/schema.js` | Minimal dependency-free JSON-shape validator. |
-| `src/store.js` | `MemoryStore` — message log, ledger, cursors, quarantine (pluggable). |
+| `src/store.js` | `MemoryStore` - message log, ledger, cursors, quarantine (pluggable). |
 | `src/subjects.js` | Example subjects + schemas and broker factories. |
 | `src/server.js` | HTTP API surface. |
 | `examples/walkthrough.js` | The narrated demo. |
 
 ## Positioning
 
-Pigeon is to async communication what an API gateway is to HTTP, but deeper — it
+Pigeon is to async communication what an API gateway is to HTTP, but deeper - it
 governs retry semantics, replay rights, duplicate suppression, audit, and data
 movement, not just admission. See the full comparison and north-star design in
 **[docs/vision.md](docs/vision.md)**.
@@ -239,7 +239,7 @@ movement, not just admission. See the full comparison and north-star design in
 
 The MVP is Phase 0 (a formal, executable model). The path to a production system:
 
-1. Durable storage — append-only message log plus SQLite/RocksDB indexes (via the
+1. Durable storage - append-only message log plus SQLite/RocksDB indexes (via the
    `MemoryStore` seam in `src/store.js`).
 2. Leases, nack, retry backoff, and dead-letter / quarantine-release workflows.
 3. Signed policy bundles and per-message policy version pinning.
@@ -252,7 +252,7 @@ Full phased roadmap in [docs/vision.md](docs/vision.md#roadmap).
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for development
+Contributions are welcome - see [CONTRIBUTING.md](CONTRIBUTING.md) for development
 setup, project layout, and how to add a subject. Please also read the
 [Code of Conduct](CODE_OF_CONDUCT.md). For security issues, follow
 [SECURITY.md](SECURITY.md) rather than opening a public issue.

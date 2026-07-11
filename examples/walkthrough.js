@@ -42,9 +42,9 @@ const accepted = pay(checkout, { orderId: "order_456", idempotencyKey: "order_45
 outcome(accepted);
 
 scene(2, "Retry with the same idempotency key (no double charge)");
-hop("SENDER", "BROKER", "publish authorize_payment (order_456) — retry");
+hop("SENDER", "BROKER", "publish authorize_payment (order_456) - retry");
 const retry = pay(checkout, { orderId: "order_456", idempotencyKey: "order_456:authorize" });
-outcome(retry, "the customer is NOT charged twice — the original message is returned");
+outcome(retry, "the customer is NOT charged twice - the original message is returned");
 
 scene(3, "Unauthorized producer is denied at admission");
 hop("ATTACKER", "BROKER", "publish authorize_payment (order_789)");
@@ -64,7 +64,7 @@ if (Array.isArray(received)) {
   console.log(`   ${dim("denied and quarantined messages never reach the receiver")}`);
 }
 
-scene(6, "Replay is a governed action — denied on this subject");
+scene(6, "Replay is a governed action - denied on this subject");
 hop("RECEIVER", "BROKER", "replay payments.authorize");
 const replay = safe(() => broker.replay("payments.authorize", gateway, { reason: "debugging" }));
 outcome(replay);
@@ -125,7 +125,7 @@ function safe(fn) {
 
 function outcome(result, note) {
   if (result?.denied) {
-    console.log(`   ${red("DENIED")} ${bold(result.code)} — ${result.message}`);
+    console.log(`   ${red("DENIED")} ${bold(result.code)} - ${result.message}`);
   } else if (result?.status === "duplicate") {
     console.log(`   ${yellow("DUPLICATE")} returned original ${result.message.id}`);
   } else if (result?.status === "accepted") {
@@ -196,7 +196,7 @@ function quarantineTable() {
 
 function header() {
   console.log("");
-  console.log(bold("  Pigeon — governed communication walkthrough"));
+  console.log(bold("  Pigeon - governed communication walkthrough"));
   console.log(dim("  Messages carry intent. Subjects carry policy. Brokers enforce guarantees."));
 }
 

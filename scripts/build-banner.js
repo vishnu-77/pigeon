@@ -1,4 +1,4 @@
-// Generates assets/pigeon-banner.svg — a self-contained, standalone animated SVG
+// Generates assets/pigeon-banner.svg - a self-contained, standalone animated SVG
 // banner styled like a restrained airport split-flap / LED departure board.
 //
 // No JavaScript, no external fonts/images/stylesheets, no runtime dependencies: all

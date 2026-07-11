@@ -1,6 +1,6 @@
 # Contributing to Pigeon
 
-Thanks for your interest in Pigeon — a policy-native messaging prototype. This project
+Thanks for your interest in Pigeon - a policy-native messaging prototype. This project
 is an MVP, so contributions of all sizes are welcome: bug reports, docs, tests, and
 new subjects/policies.
 
@@ -30,7 +30,7 @@ npm run demo     # runs the payment authorization demo
 npm start        # starts the HTTP broker on :8787
 ```
 
-There is no build step and no install step for runtime — `npm test` works on a fresh
+There is no build step and no install step for runtime - `npm test` works on a fresh
 clone.
 
 ## Container simulation

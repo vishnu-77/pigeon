@@ -122,11 +122,11 @@ flowchart TD
 
 ## Related docs
 
-- [../README.md](../README.md) — product overview, quickstart, HTTP API.
-- [mvp-architecture.md](mvp-architecture.md) — tagged transmit path and component view.
-- [vision.md](vision.md) — the north-star design, positioning, and roadmap.
-- [use-cases.md](use-cases.md) — where and how to apply Pigeon, with subject sketches.
-- [local-container-simulation.md](local-container-simulation.md) — the networked sender/broker/receiver demo.
+- [../README.md](../README.md) - product overview, quickstart, HTTP API.
+- [mvp-architecture.md](mvp-architecture.md) - tagged transmit path and component view.
+- [vision.md](vision.md) - the north-star design, positioning, and roadmap.
+- [use-cases.md](use-cases.md) - where and how to apply Pigeon, with subject sketches.
+- [local-container-simulation.md](local-container-simulation.md) - the networked sender/broker/receiver demo.
 
 These diagrams render directly on GitHub (Mermaid), so they double as talk/demo
 material for explaining why a payment authorization is not just a message from A to B.

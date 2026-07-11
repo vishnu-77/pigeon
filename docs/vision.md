@@ -1,7 +1,7 @@
 # Pigeon Vision
 
 > This document is the north star. The code in this repo is a small, executable
-> MVP of the model described here — not the full system. See the
+> MVP of the model described here - not the full system. See the
 > [Roadmap](#roadmap) for how the two connect.
 
 ## Thesis
@@ -44,8 +44,8 @@ embed storage, or bridge to Kafka, NATS, RabbitMQ, Pulsar, and cloud queues.
 
 ### Subject
 
-A subject is the governed communication resource. Everything — who can publish,
-schema, residency, retries, replay, retention, quarantine — is declared on it.
+A subject is the governed communication resource. Everything - who can publish,
+schema, residency, retries, replay, retention, quarantine - is declared on it.
 
 ```yaml
 apiVersion: pigeon.io/v1
@@ -96,23 +96,23 @@ intent before accepting, delivering, retrying, replaying, or forwarding a messag
 
 ## State-of-the-art choices
 
-- **Identity** — workload identity (SPIFFE/SPIRE), not static service tokens.
+- **Identity** - workload identity (SPIFFE/SPIRE), not static service tokens.
   Policies evaluate workload identity, namespace, environment, and attestations.
-- **Policy** — a layered model: fast built-in rules for common cases, **Cedar** for
+- **Policy** - a layered model: fast built-in rules for common cases, **Cedar** for
   analyzable authorization, optional **OPA/Rego** adapter. One internal decision
   interface keeps the broker independent of any single policy language.
-- **Schema** — Protobuf, JSON Schema, and Avro; validated before storage, with
+- **Schema** - Protobuf, JSON Schema, and Avro; validated before storage, with
   opt-in quarantine of invalid messages for forensics.
-- **Idempotency** — no universal exactly-once claim; instead effect-safe primitives:
+- **Idempotency** - no universal exactly-once claim; instead effect-safe primitives:
   required idempotency keys for dangerous intents, atomic append + ledger write,
   producer sequence numbers, consumer leases, transactional outbox/inbox helpers.
-- **Replay** — a governed action with allowed principals, max age, required reason,
+- **Replay** - a governed action with allowed principals, max age, required reason,
   field redaction, and mandatory audit.
-- **Data residency** — every message carries a region + classification; every
+- **Data residency** - every message carries a region + classification; every
   subject defines allowed movement; cross-region replication is policy-gated at the
   broker, not hidden in infrastructure.
-- **Audit** — an immutable event stream separate from user message streams.
-- **Quarantine** — not a prettier dead-letter queue but a governed evidence store
+- **Audit** - an immutable event stream separate from user message streams.
+- **Quarantine** - not a prettier dead-letter queue but a governed evidence store
   (original envelope, failure reason, policy/schema version, principal, region,
   release policy, audit trail).
 
@@ -140,18 +140,18 @@ recovery with residency constraints · upgrade safety for brokers and policy bun
 
 ## Roadmap
 
-- **Phase 0 — Formal model (this repo).** Smallest executable model: subject spec,
+- **Phase 0 - Formal model (this repo).** Smallest executable model: subject spec,
   envelope spec, policy decision interface, retry/idempotency/replay state machines,
   in-memory broker + HTTP API + audit + quarantine.
-- **Phase 1 — Single-node broker.** Durable storage (append-only log for messages,
+- **Phase 1 - Single-node broker.** Durable storage (append-only log for messages,
   SQLite/RocksDB for idempotency/offsets/leases/metadata, separate audit log); gRPC +
   CloudEvents HTTP + streaming consumers.
-- **Phase 2 — Kubernetes-native control plane.** CRDs (`Subject`, `PolicyBundle`,
+- **Phase 2 - Kubernetes-native control plane.** CRDs (`Subject`, `PolicyBundle`,
   `SchemaBinding`, `ConsumerGroup`, `RegionBridge`, `Quarantine`) reconciled into
   broker runtime config.
-- **Phase 3 — Distributed broker.** Partitioned subjects, replicated logs, Raft for
+- **Phase 3 - Distributed broker.** Partitioned subjects, replicated logs, Raft for
   metadata/leadership, versioned policy snapshots cached in brokers.
-- **Phase 4 — Compatibility bridges.** Kafka / NATS / RabbitMQ / SQS-SNS-EventBridge
+- **Phase 4 - Compatibility bridges.** Kafka / NATS / RabbitMQ / SQS-SNS-EventBridge
   source & sink, so Pigeon can govern communication without a big-bang migration.
 
 The promise:
