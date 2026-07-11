@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acme Checkout - powered by Pigeon</title>
+<style>
+  :root{
+    --bg:#070a10; --panel:#0d1119; --panel2:#111826; --line:#27303d;
+    --gold:#ffc233; --mint:#43dd82; --red:#ff6a6a; --amber:#ffcf4a; --magenta:#e08bff;
+    --dim:#5b6676; --text:#d7deea; --off:#1b2432;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;
+    align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{margin:0;font-size:18px;letter-spacing:2px;color:var(--gold)}
+  header .sub{color:var(--dim);letter-spacing:1px}
+  header .subjects{margin-left:auto;color:var(--dim);font-size:12px}
+  header .subjects b{color:var(--text)}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;padding:16px 24px}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:9px 14px;cursor:pointer;font:inherit;letter-spacing:.5px}
+  button:hover{border-color:var(--gold);color:var(--gold)}
+  button.primary{background:#231b06;border-color:var(--gold);color:var(--gold)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  main{padding:8px 24px 24px;max-width:1180px;margin:0 auto}
+  .stage{position:relative;display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:16px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;min-height:230px}
+  .lane{display:flex;flex-direction:column;gap:10px}
+  .lane h2{margin:0 0 6px;font-size:12px;letter-spacing:1.5px;color:var(--dim);font-weight:600}
+  .node{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel2)}
+  .node .who{color:var(--gold);font-size:12px;letter-spacing:.5px}
+  .node .role{color:var(--dim);font-size:11px}
+  .gates{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+  .gate{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;
+    letter-spacing:.5px;color:var(--dim);background:#0a101a;transition:all .25s}
+  .gate .g-state{float:right;font-size:11px}
+  .gate.pass{color:var(--mint);border-color:#1f5b3f}
+  .gate.fail{color:var(--red);border-color:#5b2020}
+  .gate.warn{color:var(--amber);border-color:#5b4a1f}
+  .verdict{margin-top:10px;padding:10px 12px;border-radius:8px;text-align:center;
+    letter-spacing:2px;font-size:14px;border:1px solid var(--line);color:var(--dim)}
+  .verdict.accepted{color:var(--mint);border-color:#1f5b3f;background:#0b1a12}
+  .verdict.duplicate{color:var(--amber);border-color:#5b4a1f;background:#1a160b}
+  .verdict.denied{color:var(--red);border-color:#5b2020;background:#1a0e0e}
+  .verdict.quarantined{color:var(--magenta);border-color:#4a2a5b;background:#160b1a}
+  .delivered{min-height:38px}
+  .pill{display:inline-block;margin:3px 4px 0 0;padding:4px 8px;border-radius:999px;
+    font-size:11px;border:1px solid var(--line);color:var(--text)}
+  .pill.pay{border-color:#1f5b3f;color:var(--mint)}
+  .pill.note{border-color:#4a2a5b;color:var(--magenta)}
+  #token{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--gold);
+    box-shadow:0 0 10px var(--gold);top:96px;left:6%;opacity:0;transition:left .5s ease,opacity .3s}
+  .panels{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h3{margin:0 0 10px;font-size:12px;letter-spacing:1.5px;color:var(--dim)}
+  .log{max-height:230px;overflow:auto;font-size:12px}
+  .row{display:flex;gap:10px;padding:4px 0;border-bottom:1px solid #131a26}
+  .row .t{color:var(--dim);min-width:150px}
+  .ev-accepted,.ev-dispatched,.ev-acked{color:var(--mint)}
+  .ev-denied,.ev-quarantine{color:var(--red)}
+  .ev-duplicate{color:var(--amber)}
+  .ev-registered,.ev-executed{color:var(--dim)}
+  .qrow{padding:6px 0;border-bottom:1px solid #131a26}
+  .qrow .code{color:var(--magenta)}
+  .empty{color:var(--dim);font-style:italic}
+  footer{color:var(--dim);text-align:center;padding:18px;font-size:12px}
+  footer a{color:var(--gold)}
+</style>
+</head>
+<body>
+<header>
+  <h1>ACME CHECKOUT</h1>
+  <span class="sub">powered by Pigeon - governed communication</span>
+  <span class="subjects" id="subjects">loading subjects...</span>
+</header>
+
+<div class="controls">
+  <button class="primary" onclick="scenario('order')">Place order</button>
+  <button onclick="scenario('retry')">Retry same order</button>
+  <button onclick="scenario('unauthorized')">Unauthorized service</button>
+  <button onclick="scenario('pan')">Leak card PAN</button>
+  <button onclick="scenario('region')">Wrong region (us)</button>
+  <button onclick="resetUI()">Reset view</button>
+</div>
+
+<main>
+  <div class="stage">
+    <div id="token"></div>
+    <div class="lane">
+      <h2>ORDER SERVICE - SENDER</h2>
+      <div class="node">
+        <div class="who">checkout-api</div>
+        <div class="role">publishes authorize_payment</div>
+      </div>
+      <div class="node">
+        <div class="who">orders-api</div>
+        <div class="role">publishes send_notification</div>
+      </div>
+      <div id="sent" class="delivered"></div>
+    </div>
+
+    <div class="lane">
+      <h2>PIGEON BROKER - POLICY GATES</h2>
+      <div class="gates" id="gates"></div>
+      <div class="verdict" id="verdict">idle</div>
+    </div>
+
+    <div class="lane">
+      <h2>RECEIVERS</h2>
+      <div class="node">
+        <div class="who">gateway-adapter</div>
+        <div class="role">receives payments.authorize</div>
+      </div>
+      <div class="node">
+        <div class="who">notifier-worker</div>
+        <div class="role">receives notifications.send</div>
+      </div>
+      <div id="delivered" class="delivered"></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="card">
+      <h3>AUDIT TRAIL - immutable, live</h3>
+      <div class="log" id="audit"><span class="empty">no events yet</span></div>
+    </div>
+    <div class="card">
+      <h3>QUARANTINE - evidence</h3>
+      <div class="log" id="quarantine"><span class="empty">empty</span></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  This dashboard drives the real Pigeon HTTP API on this origin.
+  Source: <a href="https://github.com/vishnu-77/pigeon">github.com/vishnu-77/pigeon</a>
+</footer>
+
+<script>
+const P = {
+  checkout: "spiffe://merchant-prod/ns/checkout/sa/checkout-api",
+  orders:   "spiffe://merchant-prod/ns/orders/sa/orders-api",
+  gateway:  "spiffe://merchant-prod/ns/payments/sa/gateway-adapter",
+  notifier: "spiffe://merchant-prod/ns/notify/sa/notifier-worker",
+  catalog:  "spiffe://merchant-prod/ns/catalog/sa/catalog-api"
+};
+const GATES = ["identity","intent","schema","region","sensitivity","idempotency"];
+let orderSeq = 1000;
+let lastOrder = null;
+let busy = false;
+
+async function api(method, path, principal, region, body){
+  const res = await fetch(path, {
+    method,
+    headers: {
+      "content-type":"application/json",
+      "x-pigeon-principal": principal,
+      "x-pigeon-region": region
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let json = {};
+  try { json = await res.json(); } catch {}
+  return { status: res.status, json };
+}
+
+function renderGates(states){
+  const el = document.getElementById("gates");
+  el.innerHTML = GATES.map((g,i) => {
+    const s = states[i] || "dim";
+    const mark = s==="pass" ? "PASS" : s==="fail" ? "DENY" : s==="warn" ? "DUP" : "";
+    return `<div class="gate ${s==="dim"?"":s}">${g}<span class="g-state">${mark}</span></div>`;
+  }).join("");
+}
+
+function setVerdict(kind, text){
+  const v = document.getElementById("verdict");
+  v.className = "verdict " + kind;
+  v.textContent = text;
+}
+
+async function moveToken(){
+  const t = document.getElementById("token");
+  t.style.opacity = 1; t.style.left = "6%";
+  await wait(60); t.style.left = "44%";
+  await wait(520); t.style.left = "82%";
+  await wait(520); t.style.opacity = 0;
+}
+function hideToken(){ const t=document.getElementById("token"); t.style.opacity=0; t.style.left="6%"; }
+
+function order(overrides={}){
+  const id = "order_" + (++orderSeq);
+  return Object.assign({
+    subject:"payments.authorize", type:"payment.authorization.requested",
+    source:"checkout-service", intent:"authorize_payment",
+    idempotencyKey:id+":authorize", classification:"pci", region:"uk",
+    data:{ merchantId:"acme_123", orderId:id, amount:42.5, currency:"GBP", paymentToken:"tok_visa_abc" }
+  }, overrides);
+}
+
+function addSent(label, cls){
+  document.getElementById("sent").insertAdjacentHTML("afterbegin",
+    `<span class="pill ${cls}">${label}</span>`);
+}
+function addDelivered(label, cls){
+  document.getElementById("delivered").insertAdjacentHTML("afterbegin",
+    `<span class="pill ${cls}">${label}</span>`);
+}
+
+async function scenario(kind){
+  if(busy) return; busy = true;
+  try { await run(kind); } finally { busy = false; refresh(); }
+}
+
+async function run(kind){
+  if(kind === "order"){
+    const msg = order(); lastOrder = msg;
+    addSent("PAY "+msg.data.orderId, "pay");
+    await moveToken();
+    const r = await api("POST","/v1/messages", P.checkout, "uk", msg);
+    if(r.json.status === "accepted"){
+      renderGates(["pass","pass","pass","pass","pass","pass"]);
+      setVerdict("accepted","ACCEPTED");
+      // deliver payment to gateway
+      const g = await api("POST","/v1/subjects/payments.authorize/receive", P.gateway, "uk", {max:50});
+      (g.json.messages||[]).slice(-1).forEach(m => addDelivered("PAY "+m.data.orderId,"pay"));
+      // send order-confirmation notification
+      const note = { subject:"notifications.send", type:"notification.requested", source:"orders-service",
+        intent:"send_notification", idempotencyKey:msg.data.orderId+":confirm", classification:"pii", region:"uk",
+        data:{ recipientId:"cust_42", channel:"email", templateId:"order_confirmed", params:{ orderId: msg.data.orderId } } };
+      const n = await api("POST","/v1/messages", P.orders, "uk", note);
+      if(n.json.status === "accepted"){
+        addSent("NOTE "+msg.data.orderId, "note");
+        const nd = await api("POST","/v1/subjects/notifications.send/receive", P.notifier, "uk", {max:50});
+        (nd.json.messages||[]).slice(-1).forEach(() => addDelivered("NOTE "+msg.data.orderId,"note"));
+      }
+    } else {
+      renderGates(["pass","pass","pass","pass","pass","warn"]);
+      setVerdict("duplicate","DUPLICATE");
+    }
+  }
+  else if(kind === "retry"){
+    const msg = lastOrder || order(); lastOrder = msg;
+    addSent("RETRY "+msg.data.orderId, "pay");
+    await moveToken();
+    const r = await api("POST","/v1/messages", P.checkout, "uk", msg);
+    if(r.json.status === "duplicate"){
+      renderGates(["pass","pass","pass","pass","pass","warn"]);
+      setVerdict("duplicate","DUPLICATE - no double charge");
+    } else {
+      renderGates(["pass","pass","pass","pass","pass","pass"]);
+      setVerdict("accepted","ACCEPTED");
+    }
+  }
+  else if(kind === "unauthorized"){
+    addSent("PAY (catalog)", "pay");
+    await moveToken(); hideToken();
+    await api("POST","/v1/messages", P.catalog, "uk", order());
+    renderGates(["fail","dim","dim","dim","dim","dim"]);
+    setVerdict("denied","DENIED - POLICY");
+  }
+  else if(kind === "pan"){
+    const msg = order(); msg.data.card = { pan:"4111111111111111" };
+    addSent("PAY +PAN", "pay");
+    await moveToken(); hideToken();
+    await api("POST","/v1/messages", P.checkout, "uk", msg);
+    renderGates(["pass","pass","pass","pass","fail","dim"]);
+    setVerdict("quarantined","QUARANTINED");
+  }
+  else if(kind === "region"){
+    const msg = order({ region:"us" });
+    addSent("PAY (region us)", "pay");
+    await moveToken(); hideToken();
+    await api("POST","/v1/messages", P.checkout, "us", msg);
+    renderGates(["pass","pass","pass","fail","dim","dim"]);
+    setVerdict("denied","DENIED - REGION");
+  }
+}
+
+function resetUI(){
+  document.getElementById("sent").innerHTML = "";
+  document.getElementById("delivered").innerHTML = "";
+  renderGates(["dim","dim","dim","dim","dim","dim"]);
+  setVerdict("", "idle");
+  hideToken();
+}
+
+async function loadSubjects(){
+  try{
+    const r = await api("GET","/v1/subjects", P.checkout, "uk");
+    const names = (r.json.subjects||[]).map(s => `<b>${s.name}</b> (${s.mode})`).join(" &middot; ");
+    document.getElementById("subjects").innerHTML = "subjects: " + (names || "none");
+  }catch{ document.getElementById("subjects").textContent = "broker offline"; }
+}
+
+async function refresh(){
+  try{
+    const a = await api("GET","/v1/audit", P.checkout, "uk");
+    const recs = (a.json.records||[]).slice().reverse();
+    const audit = document.getElementById("audit");
+    audit.innerHTML = recs.length ? recs.slice(0,40).map(r => {
+      const cls = "ev-" + (r.type.split(".")[1] || r.type.split(".")[0]);
+      return `<div class="row"><span class="t ${cls}">${r.type}</span><span>${r.subject||""}</span></div>`;
+    }).join("") : '<span class="empty">no events yet</span>';
+
+    const q = await api("GET","/v1/quarantine", P.checkout, "uk");
+    const qr = (q.json.records||[]);
+    const quar = document.getElementById("quarantine");
+    quar.innerHTML = qr.length ? qr.slice().reverse().map(r =>
+      `<div class="qrow"><span class="code">${r.code}</span><br><span class="t">${r.subject} - ${r.reason}</span></div>`
+    ).join("") : '<span class="empty">empty</span>';
+  }catch{}
+}
+
+function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+resetUI();
+loadSubjects();
+refresh();
+setInterval(refresh, 1200);
+
+// ?autorun=<scenario> triggers a run on load (used for headless screenshots)
+const auto = new URLSearchParams(location.search).get("autorun");
+if(auto){ setTimeout(() => scenario(auto), 300); }
+</script>
+</body>
+</html>

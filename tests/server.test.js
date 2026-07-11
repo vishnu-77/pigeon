@@ -43,6 +43,13 @@ function authorizePayment(overrides = {}) {
   };
 }
 
+test("serves the Acme Checkout dashboard at /", async () => {
+  const response = await fetch(`${base}/`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /text\/html/);
+  assert.match(await response.text(), /ACME CHECKOUT/);
+});
+
 test("health check responds ok", async () => {
   const response = await fetch(`${base}/health`);
   assert.equal(response.status, 200);
