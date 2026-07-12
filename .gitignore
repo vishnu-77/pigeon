@@ -15,6 +15,13 @@ outputs/
 .agents/
 .codex/
 
+# Local Claude Code settings (permissions etc.) - personal, not shared.
+# The shared .claude/commands and .claude/agents ARE tracked.
+.claude/settings.local.json
+
+# Personal npm-token setup reminder (see release workflow) - not for distribution.
+NPM_TOKEN_SETUP.md
+
 # Environment
 .env
 .env.*
