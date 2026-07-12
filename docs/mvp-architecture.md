@@ -85,10 +85,17 @@ write audit event
 
 ## Current Tradeoffs
 
-- Storage is in-memory.
-- Policy language is structured JSON rather than Cedar/Rego.
-- HTTP identity is passed through headers for local development.
+- Storage is in-memory ([ADR-0002](adr/0002-in-memory-storage-pluggable-store.md)).
+- Policy language is structured JSON rather than Cedar/Rego ([ADR-0003](adr/0003-json-policy-language-over-cedar-rego.md)).
+- HTTP identity is passed through headers for local development ([ADR-0004](adr/0004-header-based-identity-for-mvp.md)).
 - Delivery is cursor-based; full queue leases are a next step.
 - Request/reply is represented through subject mode and correlation fields, not a full response router yet.
 
 These are deliberate MVP boundaries. The core governed communication model is already executable.
+
+## Decisions behind these tradeoffs
+
+The *why* for the choices above - and other significant decisions such as the
+zero-dependency rule and the release process - is recorded as Architecture Decision
+Records in [adr/](adr/). Start a new ADR whenever a decision is hard to reverse or would
+otherwise survive only as tribal knowledge.
