@@ -5,26 +5,30 @@
 > acceptance criteria so "done" is unambiguous. Priorities: **P0** (do first) ->
 > **P3** (later). This is the execution list behind [progress.md](progress.md); the
 > *why* behind larger choices lands in [adr/](adr/).
+>
+> **Update 2026-07-14:** all fifteen findings below were implemented in one pass (see
+> the git history and [ADR-0006](adr/0006-session-contracts.md)). Statuses are now
+> **Done**; the per-item detail is retained as the record of what was built and why.
 
 ## Summary
 
 | ID | Priority | Item | Area | Status |
 | --- | --- | --- | --- | --- |
-| FND-01 | P0 | Bind producer identity to the authenticated session | Security | Open |
-| FND-02 | P0 | Decide session-contract vs subject-policy model (ADR) | Product | Open |
-| FND-03 | P1 | Enrich + persist audit events (`contract_id`/`policy_id`/`schema_id`) | Audit | Open |
-| FND-04 | P1 | Compile policy/subject/schema into lookup tables | Performance | Open |
-| FND-05 | P1 | First durable store behind the `MemoryStore` seam | Storage | Open |
-| FND-06 | P2 | Enforce the idempotency dedupe window (TTL) | Correctness | Open |
-| FND-07 | P2 | Rate limiting / throughput limits | Security | Open |
-| FND-08 | P2 | Non-root container + Dockerfile healthcheck | Ops | Open |
-| FND-09 | P2 | Make `mode` / `ack` / request-reply real (or stop advertising) | Broker | Open |
-| FND-10 | P2 | Contract / enforcement-overhead benchmark | Performance | Open |
-| FND-11 | P2 | Expand quarantine (triggers, replay-from-quarantine, visibility) | Quarantine | Open |
-| FND-12 | P2 | Collapse doubled region enforcement | Simplification | Open |
-| FND-13 | P3 | CLI verbs (`broker start`, `policy lint`, `publish`, `quarantine`) | CLI/DX | Open |
-| FND-14 | P3 | YAML policy source + lint + compile step | Policy | Open |
-| FND-15 | P3 | First SDK (Go or TypeScript) | SDK | Open |
+| FND-01 | P0 | Bind producer identity to the authenticated session | Security | Done |
+| FND-02 | P0 | Session contracts + ADR (policy-compiled model) | Product | Done |
+| FND-03 | P1 | Enrich + persist audit events (`contract_id`/`policy_id`/`schema_id`) | Audit | Done |
+| FND-04 | P1 | Compile policy/subject/schema into lookup tables | Performance | Done |
+| FND-05 | P1 | First durable store behind the `MemoryStore` seam | Storage | Done |
+| FND-06 | P2 | Enforce the idempotency dedupe window (TTL) | Correctness | Done |
+| FND-07 | P2 | Rate limiting / throughput limits | Security | Done |
+| FND-08 | P2 | Non-root container + Dockerfile healthcheck | Ops | Done |
+| FND-09 | P2 | Make `mode` / `ack` / request-reply real | Broker | Done |
+| FND-10 | P2 | Contract / enforcement-overhead benchmark | Performance | Done |
+| FND-11 | P2 | Expand quarantine (triggers, replay-from-quarantine, visibility) | Quarantine | Done |
+| FND-12 | P2 | Collapse doubled region enforcement | Simplification | Done |
+| FND-13 | P3 | CLI verbs (`broker start`, `policy lint`, `publish`, `quarantine`) | CLI/DX | Done |
+| FND-14 | P3 | File policy source (JSON) + lint + compile step | Policy | Done |
+| FND-15 | P3 | First SDK (TypeScript/ESM) | SDK | Done |
 
 ---
 

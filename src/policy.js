@@ -36,9 +36,11 @@ function matchesRule(rule, principal, context) {
     return false;
   }
 
-  if (rule.regions && !rule.regions.includes(context.region)) {
-    return false;
-  }
+  // Region is enforced once, authoritatively, by the subject's regionPolicy in
+  // broker.enforceSubjectPolicy (REGION_DENIED). It is intentionally NOT re-checked
+  // here - identity-level region scoping happens at contract negotiation time
+  // (see compile.candidateRules). This collapses the previously doubled region gate
+  // (FND-12).
 
   if (rule.requireReason && !context.reason) {
     return false;

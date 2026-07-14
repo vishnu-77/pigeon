@@ -1,0 +1,28 @@
+{
+  "name": "payments.authorize",
+  "version": "v1",
+  "mode": "requestReply",
+  "intents": ["authorize_payment"],
+  "schema": { "name": "payment.authorization.v1", "compatibility": "backward" },
+  "regionPolicy": { "home": "uk", "allowedRegions": ["uk", "eu"], "crossRegion": "deny" },
+  "delivery": {
+    "retry": { "maxAttempts": 3, "backoff": "exponential", "maxDelayMs": 30000 },
+    "idempotency": { "required": true, "key": "idempotencyKey", "ttlMs": 172800000 }
+  },
+  "replay": { "allowed": false },
+  "retention": { "messagesMs": 604800000, "auditMs": 220752000000 },
+  "data": { "classification": "pci", "encryption": "required", "tokenization": "required", "forbiddenFields": ["card.pan"] },
+  "quarantine": { "onSchemaViolation": true, "onPolicyViolation": true, "onHandlerFailure": true },
+  "policy": {
+    "publish": [
+      { "effect": "allow", "principals": ["spiffe://merchant-prod/ns/checkout/sa/checkout-api"], "intents": ["authorize_payment"], "regions": ["uk", "eu"] }
+    ],
+    "receive": [
+      { "effect": "allow", "principals": ["spiffe://merchant-prod/ns/payments/sa/gateway-adapter"], "regions": ["uk", "eu"] }
+    ],
+    "ack": [
+      { "effect": "allow", "principals": ["spiffe://merchant-prod/ns/payments/sa/gateway-adapter"], "regions": ["uk", "eu"] }
+    ],
+    "replay": []
+  }
+}
