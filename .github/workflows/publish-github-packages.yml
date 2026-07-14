@@ -1,0 +1,42 @@
+name: Publish to GitHub Packages
+
+# Publishes the package to GitHub Packages (npm.pkg.github.com) using the repo's own
+# GITHUB_TOKEN - no external npm.js credential required. GitHub Packages requires the
+# package to be scoped to the repo owner, so the name is set to @vishnu-77/pigeonmq at
+# publish time (the committed package.json keeps its npm.js name, `pigeonmq`).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@vishnu-77'
+
+      - name: Run tests
+        run: npm test
+
+      - name: Scope the package for GitHub Packages
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.name='@vishnu-77/'+p.name.replace(/^@[^/]+\//,'');p.publishConfig={registry:'https://npm.pkg.github.com'};fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');console.log('publishing',p.name+'@'+p.version);"
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: Summary
+        run: echo "✅ Published to GitHub Packages - install with an @vishnu-77 scope pointed at npm.pkg.github.com." >> "$GITHUB_STEP_SUMMARY"
