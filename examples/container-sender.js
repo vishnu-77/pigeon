@@ -1,9 +1,13 @@
 const pigeonUrl = process.env.PIGEON_URL ?? "http://localhost:8787";
-const principal = "spiffe://merchant-prod/ns/checkout/sa/checkout-api";
+const token = process.env.PIGEON_TOKEN ?? "checkout-token";
 
 process.on("SIGTERM", () => process.exit(0));
 
 await waitForBroker();
+
+// Authenticate + negotiate a session contract before publishing anything (FND-01/02).
+const contractId = await negotiate(["payments.authorize"]);
+console.log(`[sender] negotiated contract ${contractId}`);
 
 const message = {
   subject: "payments.authorize",
@@ -49,12 +53,26 @@ if (process.env.SENDER_HOLD_OPEN === "true") {
   setInterval(() => {}, 60_000);
 }
 
+async function negotiate(subjects) {
+  const response = await fetch(`${pigeonUrl}/v1/contracts`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "x-pigeon-region": "uk" },
+    body: JSON.stringify({ subjects })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(`Negotiate failed: ${response.status} ${JSON.stringify(payload)}`);
+  }
+  return payload.contract.id;
+}
+
 async function publish(body, expectOk = true) {
   const response = await fetch(`${pigeonUrl}/v1/messages`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-pigeon-principal": principal,
+      authorization: `Bearer ${token}`,
+      "x-pigeon-contract": contractId,
       "x-pigeon-region": "uk"
     },
     body: JSON.stringify(body)

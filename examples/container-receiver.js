@@ -1,7 +1,10 @@
 const pigeonUrl = process.env.PIGEON_URL ?? "http://localhost:8787";
-const principal = "spiffe://merchant-prod/ns/payments/sa/gateway-adapter";
+const token = process.env.PIGEON_TOKEN ?? "gateway-token";
 
 await waitForBroker();
+
+const contractId = await negotiate(["payments.authorize"]);
+console.log(`[receiver] negotiated contract ${contractId}`);
 
 console.log("[receiver] receiving governed payment messages from Pigeon");
 const received = await receiveUntilMessage();
@@ -16,12 +19,26 @@ console.log("[receiver] fetching quarantine");
 const quarantine = await getJson("/v1/quarantine");
 console.log(JSON.stringify(quarantine, null, 2));
 
+async function negotiate(subjects) {
+  const response = await fetch(`${pigeonUrl}/v1/contracts`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "x-pigeon-region": "uk" },
+    body: JSON.stringify({ subjects })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(`Negotiate failed: ${response.status} ${JSON.stringify(payload)}`);
+  }
+  return payload.contract.id;
+}
+
 async function receive() {
   const response = await fetch(`${pigeonUrl}/v1/subjects/payments.authorize/receive`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-pigeon-principal": principal,
+      authorization: `Bearer ${token}`,
+      "x-pigeon-contract": contractId,
       "x-pigeon-region": "uk"
     },
     body: JSON.stringify({ max: 10 })

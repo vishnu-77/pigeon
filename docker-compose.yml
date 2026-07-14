@@ -20,8 +20,11 @@ services:
     image: pigeon-checkout-sender:local
     container_name: pigeon-checkout-sender
     command: ["node", "--preserve-symlinks", "--preserve-symlinks-main", "examples/container-sender.js"]
+    healthcheck:
+      disable: true
     environment:
       PIGEON_URL: "http://pigeon-broker:8787"
+      PIGEON_TOKEN: "checkout-token"
       SENDER_HOLD_OPEN: "true"
     depends_on:
       pigeon-broker:
@@ -34,8 +37,11 @@ services:
     image: pigeon-gateway-receiver:local
     container_name: pigeon-gateway-receiver
     command: ["node", "--preserve-symlinks", "--preserve-symlinks-main", "examples/container-receiver.js"]
+    healthcheck:
+      disable: true
     environment:
       PIGEON_URL: "http://pigeon-broker:8787"
+      PIGEON_TOKEN: "gateway-token"
     depends_on:
       pigeon-broker:
         condition: service_healthy

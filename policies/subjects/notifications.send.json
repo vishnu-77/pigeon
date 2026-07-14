@@ -1,0 +1,30 @@
+{
+  "name": "notifications.send",
+  "version": "v1",
+  "mode": "workQueue",
+  "intents": ["send_notification"],
+  "schema": { "name": "notification.send.v1", "compatibility": "backward" },
+  "regionPolicy": { "home": "uk", "allowedRegions": ["uk", "eu"], "crossRegion": "deny" },
+  "delivery": {
+    "retry": { "maxAttempts": 5, "backoff": "exponential", "maxDelayMs": 60000 },
+    "idempotency": { "required": true, "key": "idempotencyKey", "ttlMs": 86400000 }
+  },
+  "replay": { "allowed": true },
+  "retention": { "messagesMs": 259200000, "auditMs": 220752000000 },
+  "data": { "classification": "pii", "encryption": "required", "forbiddenFields": ["recipient.ssn"] },
+  "quarantine": { "onSchemaViolation": true, "onPolicyViolation": true, "onHandlerFailure": true },
+  "policy": {
+    "publish": [
+      { "effect": "allow", "principals": ["spiffe://merchant-prod/ns/orders/sa/orders-api"], "intents": ["send_notification"], "regions": ["uk", "eu"] }
+    ],
+    "receive": [
+      { "effect": "allow", "principals": ["spiffe://merchant-prod/ns/notify/sa/notifier-worker"], "regions": ["uk", "eu"] }
+    ],
+    "ack": [
+      { "effect": "allow", "principals": ["spiffe://merchant-prod/ns/notify/sa/notifier-worker"], "regions": ["uk", "eu"] }
+    ],
+    "replay": [
+      { "effect": "allow", "principals": ["spiffe://merchant-prod/ns/ops/sa/notify-replay"], "regions": ["uk", "eu"], "requireReason": true }
+    ]
+  }
+}

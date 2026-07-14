@@ -43,3 +43,4 @@ the old one and update the old one's status - never rewrite history.
 | [0003](0003-json-policy-language-over-cedar-rego.md) | Structured-JSON policy language over Cedar/Rego | Accepted |
 | [0004](0004-header-based-identity-for-mvp.md) | Header-based identity for the MVP | Accepted |
 | [0005](0005-semver-tag-driven-releases.md) | SemVer, tag-driven releases | Accepted |
+| [0006](0006-session-contracts.md) | Policy-compiled session contracts | Accepted |

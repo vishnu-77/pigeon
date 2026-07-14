@@ -1,0 +1,19 @@
+# gitleaks configuration for Pigeon.
+#
+# Extends the default ruleset (so real secrets are still caught) and allowlists the
+# repo's documentation placeholders. The demo bearer tokens (e.g. "checkout-token")
+# are non-secret examples used in the README, docs, examples, and tests - they map to
+# demo principals, not credentials. This suppresses false positives from rules like
+# `curl-auth-header` on those examples.
+
+title = "Pigeon gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documentation placeholders and demo bearer tokens (not real secrets)"
+regexTarget = "match"
+regexes = [
+  '''(checkout|gateway|orders|notifier|notify-replay|catalog)-token''',
+]

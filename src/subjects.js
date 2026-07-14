@@ -183,19 +183,51 @@ export const notificationsSendSubject = {
   }
 };
 
+// Demo principals (SPIFFE ids) and the bearer tokens that authenticate as them.
+// Tokens are static and hard-coded for the local demo only - a real deployment
+// would resolve identity from mTLS/SPIFFE/JWT (see ADR-0004). Never ship these.
+export const DEMO_PRINCIPALS = {
+  checkout: { id: "spiffe://merchant-prod/ns/checkout/sa/checkout-api" },
+  gateway: { id: "spiffe://merchant-prod/ns/payments/sa/gateway-adapter" },
+  ordersApi: { id: "spiffe://merchant-prod/ns/orders/sa/orders-api" },
+  notifier: { id: "spiffe://merchant-prod/ns/notify/sa/notifier-worker" },
+  notifyReplay: { id: "spiffe://merchant-prod/ns/ops/sa/notify-replay" },
+  catalog: { id: "spiffe://merchant-prod/ns/catalog/sa/catalog-api" }
+};
+
+export const DEMO_TOKENS = {
+  "checkout-token": DEMO_PRINCIPALS.checkout,
+  "gateway-token": DEMO_PRINCIPALS.gateway,
+  "orders-token": DEMO_PRINCIPALS.ordersApi,
+  "notifier-token": DEMO_PRINCIPALS.notifier,
+  "notify-replay-token": DEMO_PRINCIPALS.notifyReplay,
+  "catalog-token": DEMO_PRINCIPALS.catalog
+};
+
+// Registers the demo bearer tokens on a broker so its authenticator can resolve
+// them to principals.
+export function registerDemoAuth(broker) {
+  for (const [token, principal] of Object.entries(DEMO_TOKENS)) {
+    broker.registerToken(token, principal);
+  }
+  return broker;
+}
+
 export function createPaymentBroker(BrokerClass) {
   const broker = new BrokerClass();
   broker.registerSchema("payment.authorization.v1", paymentAuthorizationSchema);
   broker.registerSubject(paymentsAuthorizeSubject);
+  registerDemoAuth(broker);
   return broker;
 }
 
-// Registers every demo subject on an existing broker instance.
+// Registers every demo subject (and demo auth) on an existing broker instance.
 export function registerDemoSubjects(broker) {
   broker.registerSchema("payment.authorization.v1", paymentAuthorizationSchema);
   broker.registerSubject(paymentsAuthorizeSubject);
   broker.registerSchema("notification.send.v1", notificationSendSchema);
   broker.registerSubject(notificationsSendSubject);
+  registerDemoAuth(broker);
   return broker;
 }
 

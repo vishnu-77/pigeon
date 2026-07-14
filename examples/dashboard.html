@@ -206,13 +206,17 @@
   <a href="https://github.com/vishnu-77/pigeon">source</a></footer>
 
 <script>
+// Demo bearer tokens (resolved server-side to SPIFFE principals). The dashboard
+// authenticates and negotiates a session contract per (token, subject) before
+// publishing or receiving - identity is never asserted from the client.
 const P = {
-  checkout:"spiffe://merchant-prod/ns/checkout/sa/checkout-api",
-  orders:  "spiffe://merchant-prod/ns/orders/sa/orders-api",
-  gateway: "spiffe://merchant-prod/ns/payments/sa/gateway-adapter",
-  notifier:"spiffe://merchant-prod/ns/notify/sa/notifier-worker",
-  catalog: "spiffe://merchant-prod/ns/catalog/sa/catalog-api"
+  checkout:"checkout-token",
+  orders:  "orders-token",
+  gateway: "gateway-token",
+  notifier:"notifier-token",
+  catalog: "catalog-token"
 };
+const contractCache = {};
 const GATES = ["identity","intent","schema","region","sensitivity","idempotency"];
 const TRACK_N = 9;
 let orderSeq = 1000, lastOrder = null, busy = false, online = false;
@@ -230,10 +234,38 @@ function toast(msg){
   setTimeout(() => el.remove(), 3800);
 }
 
-async function api(method, path, principal, region, body){
+function subjectOf(path, body){
+  if(path === "/v1/messages") return body && body.subject;
+  const m = /^\/v1\/subjects\/([^/]+)\/receive$/.exec(path);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+async function ensureContract(token, subject, region){
+  const key = token + ":" + subject;
+  if(contractCache[key]) return { id: contractCache[key] };
+  const res = await fetch("/v1/contracts", {
+    method:"POST",
+    headers:{ "content-type":"application/json", authorization:"Bearer " + token, "x-pigeon-region":region },
+    body: JSON.stringify({ subjects:[subject] })
+  });
+  let json = {}; try{ json = await res.json(); }catch{}
+  if(!res.ok) return { error:{ status:res.status, json } };
+  contractCache[key] = json.contract.id;
+  return { id: json.contract.id };
+}
+
+async function api(method, path, token, region, body){
+  const headers = { "content-type":"application/json", "x-pigeon-region":region };
+  if(token) headers.authorization = "Bearer " + token;
+  const subject = method === "POST" ? subjectOf(path, body) : null;
+  if(subject){
+    const c = await ensureContract(token, subject, region);
+    if(c.error) return { status:c.error.status, json:c.error.json }; // e.g. unauthorized -> no contract
+    headers["x-pigeon-contract"] = c.id;
+  }
   const res = await fetch(path, {
     method,
-    headers:{ "content-type":"application/json", "x-pigeon-principal":principal, "x-pigeon-region":region },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   });
   let json = {}; try{ json = await res.json(); }catch{}

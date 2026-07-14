@@ -7,8 +7,8 @@
 > shifts.
 
 - **Current version:** `0.1.0` (see [CHANGELOG.md](../CHANGELOG.md))
-- **Phase:** 0 - Formal model (this repo)
-- **Last updated:** 2026-07-12
+- **Phase:** 0 - Formal model (this repo), now with policy-compiled session contracts
+- **Last updated:** 2026-07-14
 
 ## Roadmap status
 
@@ -24,44 +24,53 @@ Phases are defined in [vision.md](vision.md#roadmap). This table tracks their st
 
 ## Shipped (Phase 0)
 
-- Core broker: publish / receive / replay / ack with idempotency, duplicate suppression,
-  and quarantine of violations ([mvp-architecture.md](mvp-architecture.md)).
-- Policy engine: identity, intent, region/residency, and forbidden-sensitive-field gates
-  per subject.
-- Minimal JSON-shape schema validator and an example `payments.authorize` subject.
-- Immutable audit log; every accept and deny is recorded.
-- HTTP API, `pigeon` CLI, and a live Acme Checkout dashboard at `/`, with an API reference
-  at `/docs`.
-- Payment-authorization and work-queue demos; three-container Docker simulation.
+- **Policy-compiled session contracts** ([ADR-0006](adr/0006-session-contracts.md)): an
+  authenticated principal negotiates a contract; every message runs under a validated
+  `contract_id` before the per-message gates.
+- **Server-side authentication**: identity is bound to the session, never trusted from the
+  message or a header.
+- Core broker: publish / receive / replay / ack with idempotency (TTL-bounded), duplicate
+  suppression, and quarantine of violations ([mvp-architecture.md](mvp-architecture.md)).
+- Policy engine: identity, intent, region/residency, classification, and
+  forbidden-sensitive-field gates; **policy compiled** into subject/policy/schema IDs and a
+  per-principal permission index.
+- Rate limiting (per principal + subject token bucket).
+- Minimal JSON-shape schema validator; subjects/schemas authorable as JSON files with a
+  loader + linter (`pigeon policy lint`).
+- Audit log with enriched decision fields, a hash chain, and an optional durable sink;
+  durable append-only message store, both replayed on restart.
+- HTTP API (`/v1/contracts`, `/v1/messages`, `/v1/subjects`, `/v1/audit`, `/v1/quarantine`,
+  quarantine release), `pigeon` CLI (`demo`/`broker start`/`policy lint`/`publish`/
+  `quarantine`), a TypeScript SDK, and a live Acme Checkout dashboard at `/` with an API
+  reference at `/docs`.
+- Enforcement-overhead benchmark (`npm run bench`).
+- Payment-authorization and work-queue demos; three-container Docker simulation
+  (non-root image, healthcheck).
 - CI on Node 22 and 24; SemVer + tag-driven release workflow
-  ([ADR-0005](adr/0005-semver-tag-driven-releases.md)).
-- Decision log started under [docs/adr/](adr/).
+  ([ADR-0005](adr/0005-semver-tag-driven-releases.md)); decision log under [adr/](adr/).
 
 ## In flight
 
-- Release tooling and living project docs (this change): version-compute script, ADR log,
-  and this progress doc.
+- Nothing active - the [state-audit backlog](backlog.md) (FND-01..15) is complete.
 
 ## Next up
 
-The full ranked work list from the 2026-07-14 state audit lives in
-[backlog.md](backlog.md). The near-term head of that list:
+Beyond the MVP boundary, into Phase 1 (see the [Roadmap](vision.md#roadmap)):
 
-- **P0** - Bind producer identity to the authenticated session; stop trusting the
-  `x-pigeon-principal` header ([backlog FND-01](backlog.md#fnd-01---bind-producer-identity-to-the-authenticated-session)).
-- **P0** - Decide the session-contract vs subject-policy model and record it as an ADR
-  ([backlog FND-02](backlog.md#fnd-02---decide-session-contract-vs-subject-policy-model)).
-- **P1** - Enrich + persist audit events, compile policy lookups, and add the first durable
-  store behind the pluggable seam
-  ([ADR-0002](adr/0002-in-memory-storage-pluggable-store.md)).
+- Authenticated identity at the edge (mTLS/SPIFFE/JWT) to replace the demo bearer tokens.
+- Durable, distributable session contracts (currently in-memory).
+- Streaming consumers and queue leases (delivery is cursor-based).
+- A YAML front-end over the JSON policy loader.
 
 ## Known limitations (accepted MVP boundaries)
 
 These are deliberate and documented; each links to its rationale.
 
-- In-memory storage - state is lost on restart
+- Durable storage is a single-node append-only log; not distributed
   ([ADR-0002](adr/0002-in-memory-storage-pluggable-store.md)).
 - Structured-JSON policy, not a general policy language
   ([ADR-0003](adr/0003-json-policy-language-over-cedar-rego.md)).
-- Header identity is asserted, not authenticated - not production-safe
+- Authentication uses static demo bearer tokens; real deployments need mTLS/SPIFFE/JWT
   ([ADR-0004](adr/0004-header-based-identity-for-mvp.md)).
+- Session contracts are in-memory and single-node
+  ([ADR-0006](adr/0006-session-contracts.md)).

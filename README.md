@@ -183,44 +183,61 @@ broker.registerSubject({
   }
 });
 
-// 3. Producer: identity and region travel with the call
-const checkout = { principal: { id: "spiffe://shop/ns/checkout/sa/api" }, region: "uk" };
-broker.request("orders.placed", { orderId: "o_1", amount: 42.5 }, checkout, {
+// 3. Register a credential and negotiate a session contract (identity is bound
+//    to the contract, never trusted from the message).
+broker.registerToken("checkout-token", { id: "spiffe://shop/ns/checkout/sa/api" });
+const checkout = broker.connect(
+  { principal: { id: "spiffe://shop/ns/checkout/sa/api" }, region: "uk" },
+  { subjects: ["orders.placed"] }
+);
+
+// 4. Producer: every call runs under the contract
+checkout.request("orders.placed", { orderId: "o_1", amount: 42.5 }, {
   intent: "place_order", idempotencyKey: "o_1:place", classification: "internal", region: "uk"
 });
 
-// 4. Consumer: receives only what it is authorized for
-const worker = { principal: { id: "spiffe://shop/ns/fulfil/sa/worker" }, region: "uk" };
-const messages = broker.receive("orders.placed", worker, { max: 10 });
+// 5. Consumer: receives only what its contract authorizes
+broker.registerToken("worker-token", { id: "spiffe://shop/ns/fulfil/sa/worker" });
+const worker = broker.connect(
+  { principal: { id: "spiffe://shop/ns/fulfil/sa/worker" }, region: "uk" },
+  { subjects: ["orders.placed"] }
+);
+const messages = worker.receive("orders.placed", { max: 10 });
 ```
 
-A disallowed intent, a forbidden field, or a wrong region makes `publish` throw a
-`PigeonError`, and the attempt is audited (and quarantined where configured). The rules
-live on the subject, not scattered across your services. See `src/subjects.js` for a fuller
-worked example.
+An unauthorized producer is denied at `connect()` (no contract is issued); a disallowed
+intent, forbidden field, or wrong region makes the call throw a `PigeonError`, and the
+attempt is audited (and quarantined where configured). The rules live on the subject, not
+scattered across your services. See `src/subjects.js` for a fuller worked example.
 
 ### As a standalone broker (any language, over HTTP)
 
-Run Pigeon as a service (`npm start` or `docker compose up`) and have your services call it
-over HTTP, passing identity and region as headers:
+Run Pigeon as a service (`npm start` or `docker compose up`) and have your services
+authenticate, negotiate a contract, then publish under it:
 
 ```bash
-# Producer
+# 1. Negotiate a session contract (returns { "contract": { "id": "contract_1", ... } })
+curl -X POST http://broker:8787/v1/contracts \
+  -H "authorization: Bearer checkout-token" -H "x-pigeon-region: uk" \
+  -d '{ "subjects": ["orders.placed"] }'
+
+# 2. Producer: publish under the contract
 curl -X POST http://broker:8787/v1/messages \
-  -H "x-pigeon-principal: spiffe://shop/ns/checkout/sa/api" \
-  -H "x-pigeon-region: uk" \
+  -H "authorization: Bearer checkout-token" \
+  -H "x-pigeon-contract: contract_1" -H "x-pigeon-region: uk" \
   -d '{ "subject":"orders.placed","type":"order.placed","source":"checkout",
         "intent":"place_order","idempotencyKey":"o_1:place","region":"uk",
         "data":{ "orderId":"o_1","amount":42.5 } }'
 
-# Consumer
+# 3. Consumer: receive under its own contract
 curl -X POST http://broker:8787/v1/subjects/orders.placed/receive \
-  -H "x-pigeon-principal: spiffe://shop/ns/fulfil/sa/worker" \
+  -H "authorization: Bearer worker-token" -H "x-pigeon-contract: contract_2" \
   -d '{ "max": 10 }'
 ```
 
-See the [HTTP API](#http-api) for the full endpoint list; the Acme Checkout dashboard above
-is exactly this pattern from the browser.
+Or use the [TypeScript SDK](sdk/typescript/README.md), which wraps auth + contract
+negotiation. See the [HTTP API](#http-api) for the full endpoint list; the Acme Checkout
+dashboard above is exactly this pattern from the browser.
 
 ### Installing today
 
@@ -232,9 +249,9 @@ npm install github:vishnu-77/pigeon                 # add as a git dependency
 git clone https://github.com/vishnu-77/pigeon.git   # run the HTTP / Docker broker
 ```
 
-Current MVP limits: storage is in-memory and single-node, and identity is passed via
-`x-pigeon-*` headers. Durable storage and SPIFFE mTLS are on the
-[roadmap](docs/vision.md#roadmap).
+Current MVP limits: authentication uses static demo bearer tokens (real deployments need
+mTLS/SPIFFE/JWT), and session contracts are in-memory and single-node. Durable message
+storage is available via `PIGEON_DATA_DIR`. See the [roadmap](docs/vision.md#roadmap).
 
 ## Where & how to use it
 

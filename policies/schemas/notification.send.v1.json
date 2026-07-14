@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "required": ["recipientId", "channel", "templateId"],
+  "properties": {
+    "recipientId": { "type": "string" },
+    "channel": { "type": "string", "enum": ["email", "sms", "push"] },
+    "templateId": { "type": "string" },
+    "locale": { "type": "string" },
+    "params": { "type": "object" },
+    "recipient": {
+      "type": "object",
+      "properties": {
+        "ssn": { "type": "string" }
+      }
+    }
+  }
+}

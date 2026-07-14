@@ -33,62 +33,55 @@ function tryStep(name, fn) {
   }
 }
 
-tryStep("1. governed payment authorization accepted", () => broker.request("payments.authorize", {
+// Each principal negotiates a session contract; every operation runs under it.
+const checkoutSession = broker.connect(checkout, { subjects: ["payments.authorize"] });
+const gatewaySession = broker.connect(gateway, { subjects: ["payments.authorize"] });
+
+tryStep("1. governed payment authorization accepted", () => checkoutSession.request("payments.authorize", {
   merchantId: "merchant_123",
   orderId: "order_456",
   amount: 42.5,
   currency: "GBP",
   paymentToken: "tok_visa_abc"
-}, checkout, {
+}, {
   intent: "authorize_payment",
   idempotencyKey: "order_456:authorize",
   classification: "pci",
   region: "uk"
 }));
 
-tryStep("2. retry with same idempotency key is deduplicated", () => broker.request("payments.authorize", {
+tryStep("2. retry with same idempotency key is deduplicated", () => checkoutSession.request("payments.authorize", {
   merchantId: "merchant_123",
   orderId: "order_456",
   amount: 42.5,
   currency: "GBP",
   paymentToken: "tok_visa_abc"
-}, checkout, {
+}, {
   intent: "authorize_payment",
   idempotencyKey: "order_456:authorize",
   classification: "pci",
   region: "uk"
 }));
 
-tryStep("3. unauthorized producer is denied", () => broker.request("payments.authorize", {
-  merchantId: "merchant_123",
-  orderId: "order_789",
-  amount: 10,
-  currency: "GBP",
-  paymentToken: "tok_visa_def"
-}, attacker, {
-  intent: "authorize_payment",
-  idempotencyKey: "order_789:authorize",
-  classification: "pci",
-  region: "uk"
-}));
+tryStep("3. unauthorized producer is denied - no contract is issued", () => broker.connect(attacker, { subjects: ["payments.authorize"] }));
 
-tryStep("4. raw PAN is denied and quarantined", () => broker.request("payments.authorize", {
+tryStep("4. raw PAN is denied and quarantined", () => checkoutSession.request("payments.authorize", {
   merchantId: "merchant_123",
   orderId: "order_999",
   amount: 15,
   currency: "GBP",
   paymentToken: "tok_visa_xyz",
   card: { pan: "4111111111111111" }
-}, checkout, {
+}, {
   intent: "authorize_payment",
   idempotencyKey: "order_999:authorize",
   classification: "pci",
   region: "uk"
 }));
 
-tryStep("5. gateway receives only authorized messages", () => broker.receive("payments.authorize", gateway, { max: 10 }));
+tryStep("5. gateway receives only authorized messages", () => gatewaySession.receive("payments.authorize", { max: 10 }));
 
-tryStep("6. replay is denied by subject policy", () => broker.replay("payments.authorize", gateway, { reason: "debug" }));
+tryStep("6. replay is denied by subject policy", () => gatewaySession.replay("payments.authorize", { reason: "debug" }));
 
 console.log("\nAudit trail");
 console.log(JSON.stringify(broker.listAudit(), null, 2));
