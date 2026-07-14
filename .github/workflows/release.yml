@@ -53,15 +53,15 @@ jobs:
       - name: Run demo (smoke test)
         run: npm run demo
 
-      # Automated path: bump, tag, and push. The tag is pushed with GITHUB_TOKEN, which
-      # deliberately does NOT re-trigger the tag path below (no double release).
-      - name: Bump, tag, and push
+      # Automated path: bump + tag locally, but DO NOT push yet. The commit/tag are only
+      # pushed after npm publish succeeds (below), so a failed publish - e.g. a taken
+      # package name - never leaves an orphaned tag or version bump on main.
+      - name: Bump and tag (no push yet)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           npm version "${{ inputs.bump }}" -m "release: v%s"
-          git push --follow-tags
 
       - name: Resolve version
         run: |
@@ -87,6 +87,11 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
+
+      # Push the version commit + tag only now that publish has succeeded (dispatch path).
+      - name: Push commit and tag
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: git push --follow-tags
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
