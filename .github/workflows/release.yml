@@ -2,10 +2,10 @@ name: Release Pipeline
 
 # Two ways to cut a release:
 #   1. Automated - GitHub UI: Actions -> "Release Pipeline" -> "Run workflow" -> pick a
-#      bump (patch/minor/major). This runs tests, `npm version <bump>` (commit + tag),
-#      pushes, publishes, and creates the GitHub Release - all in one run.
+#      bump (patch/minor/major). Runs tests, bumps package.json, pushes the commit + tag
+#      to main (rebase-safe), publishes to npm, and creates the GitHub Release.
 #   2. Manual - locally run `npm version <bump>` then `git push --follow-tags`; the pushed
-#      tag triggers this same pipeline. See CONTRIBUTING.md.
+#      tag triggers this same pipeline.
 #
 # A normal push to main does NOT release - only a v* tag or a manual dispatch does.
 on:
@@ -23,22 +23,26 @@ on:
     tags:
       - 'v*'
 
+# Never run two releases at once - prevents the main-branch push race.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write   # push the version commit/tag and create the GitHub Release
-  id-token: write   # npm provenance (OIDC), harmless if npm publish is skipped
+  id-token: write   # npm provenance (OIDC)
 
 jobs:
   release:
     name: Publish release
     runs-on: ubuntu-latest
-    # The `secrets` context is not allowed in step `if:`, so surface the token as env.
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history so `npm version` can commit and tag
+          fetch-depth: 0   # full history so we can rebase before pushing
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -46,52 +50,57 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      # Gate the release on a green build BEFORE bumping/tagging.
+      # Gate the release on a green build BEFORE bumping/tagging/publishing.
       - name: Run tests
         run: npm test
 
       - name: Run demo (smoke test)
         run: npm run demo
 
-      # Automated path: bump + tag locally, but DO NOT push yet. The commit/tag are only
-      # pushed after npm publish succeeds (below), so a failed publish - e.g. a taken
-      # package name - never leaves an orphaned tag or version bump on main.
-      - name: Bump and tag (no push yet)
+      # Automated path: bump package.json (no tag yet), commit.
+      - name: Bump version
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          npm version "${{ inputs.bump }}" -m "release: v%s"
+          npm version "${{ inputs.bump }}" --no-git-tag-version
+          version="$(node -p "require('./package.json').version")"
+          git commit -am "release: v$version"
 
       - name: Resolve version
         run: |
           version="$(node -p "require('./package.json').version")"
           echo "VERSION=$version" >> "$GITHUB_ENV"
-          # On the tag path, make sure the tag and package.json agree.
           if [ "${{ github.event_name }}" = "push" ]; then
             tag="${GITHUB_REF_NAME#v}"
             if [ "$tag" != "$version" ]; then
               echo "::error::Tag v$tag does not match package.json version $version."
-              echo "Bump with 'npm version' so the tag and package.json agree."
               exit 1
             fi
           fi
           echo "Releasing v$version"
 
+      # Automated path: push the commit + tag to main FIRST (rebase-safe so a concurrent
+      # main update does not cause a non-fast-forward), BEFORE the irreversible npm
+      # publish. If publish then fails, the git record exists and the version can be
+      # re-published manually.
+      - name: Push commit and tag to main
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+
       - name: Build release notes from CHANGELOG
         run: node scripts/changelog-section.mjs "$VERSION" > RELEASE_NOTES.md
 
       - name: Publish to npm
-        # Runs only when an NPM_TOKEN secret is configured; otherwise GitHub-only.
         if: ${{ env.NPM_TOKEN != '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
-
-      # Push the version commit + tag only now that publish has succeeded (dispatch path).
-      - name: Push commit and tag
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: git push --follow-tags
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
