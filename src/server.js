@@ -21,10 +21,12 @@ const routes = [
   { method: "GET", pattern: /^\/health$/, handler: health },
   { method: "GET", pattern: /^\/v1\/subjects$/, handler: listSubjects },
   { method: "GET", pattern: /^\/v1\/subjects\/([^/]+)$/, handler: describeSubject },
+  { method: "POST", pattern: /^\/v1\/contracts$/, handler: negotiateContract },
   { method: "POST", pattern: /^\/v1\/messages$/, handler: publishMessage },
   { method: "POST", pattern: /^\/v1\/subjects\/([^/]+)\/receive$/, handler: receiveMessages },
   { method: "GET", pattern: /^\/v1\/audit$/, handler: listAudit },
-  { method: "GET", pattern: /^\/v1\/quarantine$/, handler: listQuarantine }
+  { method: "GET", pattern: /^\/v1\/quarantine$/, handler: listQuarantine },
+  { method: "POST", pattern: /^\/v1\/quarantine\/([^/]+)\/release$/, handler: releaseQuarantine }
 ];
 
 export function createPigeonServer(broker = createDemoBroker(PigeonBroker)) {
@@ -83,16 +85,35 @@ function describeSubject({ response, broker, params }) {
   send(response, 200, { subject });
 }
 
+async function negotiateContract({ request, response, broker }) {
+  const body = await readJson(request);
+  const context = contextFromAuth(request, broker);
+  const contract = broker.negotiate(context, { subjects: body.subjects, ttlMs: body.ttlMs });
+  send(response, 201, { contract });
+}
+
 async function publishMessage({ request, response, broker }) {
   const body = await readJson(request);
-  const result = broker.publish(body, contextFromHeaders(request));
+  const context = contextFromAuth(request, broker);
+  if (body.contractId) context.contractId = body.contractId;
+  const result = broker.publish(body, context);
   send(response, result.status === "duplicate" ? 200 : 202, result);
 }
 
 async function receiveMessages({ request, response, broker, params }) {
   const body = await readJson(request);
-  const messages = broker.receive(params[0], contextFromHeaders(request), { max: body.max ?? 1 });
+  const context = contextFromAuth(request, broker);
+  if (body.contractId) context.contractId = body.contractId;
+  const messages = broker.receive(params[0], context, { max: body.max ?? 1 });
   send(response, 200, { messages });
+}
+
+async function releaseQuarantine({ request, response, broker, params }) {
+  const body = await readJson(request);
+  const context = contextFromAuth(request, broker);
+  if (body.contractId) context.contractId = body.contractId;
+  const result = broker.releaseQuarantine(params[0], context);
+  send(response, 202, result);
 }
 
 function listAudit({ response, broker }) {
@@ -115,22 +136,31 @@ function subjectSummary(subject) {
   };
 }
 
-function contextFromHeaders(request) {
+// Identity is resolved server-side from the bearer credential and bound to the
+// request context. A client-supplied principal is never trusted (FND-01).
+function contextFromAuth(request, broker) {
   return {
-    principal: {
-      id: request.headers["x-pigeon-principal"] ?? "anonymous",
-      attributes: {}
-    },
-    region: request.headers["x-pigeon-region"] ?? "uk"
+    principal: broker.authenticate(request.headers["authorization"]),
+    region: request.headers["x-pigeon-region"] ?? "uk",
+    contractId: request.headers["x-pigeon-contract"] ?? null
   };
 }
 
 function statusFor(code) {
   return {
+    UNAUTHENTICATED: 401,
     POLICY_DENIED: 403,
     REPLAY_DENIED: 403,
     REGION_DENIED: 403,
     INTENT_DENIED: 403,
+    CONTRACT_REQUIRED: 403,
+    CONTRACT_NOT_FOUND: 403,
+    CONTRACT_EXPIRED: 403,
+    CONTRACT_PRINCIPAL_MISMATCH: 403,
+    SUBJECT_NOT_IN_CONTRACT: 403,
+    OPERATION_NOT_IN_CONTRACT: 403,
+    NO_PERMITTED_SUBJECTS: 403,
+    RATE_LIMITED: 429,
     SENSITIVE_FIELD_DENIED: 422,
     IDEMPOTENCY_REQUIRED: 422,
     CLASSIFICATION_DENIED: 422,
@@ -139,6 +169,7 @@ function statusFor(code) {
     SCHEMA_NOT_FOUND: 500,
     SUBJECT_NOT_FOUND: 404,
     MESSAGE_NOT_FOUND: 404,
+    QUARANTINE_NOT_FOUND: 404,
     BAD_REQUEST: 400,
     PAYLOAD_TOO_LARGE: 413,
     METHOD_NOT_ALLOWED: 405

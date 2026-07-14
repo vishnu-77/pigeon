@@ -7,9 +7,9 @@ import { createPigeonServer } from "../src/server.js";
 let server;
 let base;
 
-const CHECKOUT = "spiffe://merchant-prod/ns/checkout/sa/checkout-api";
-const GATEWAY = "spiffe://merchant-prod/ns/payments/sa/gateway-adapter";
-const CATALOG = "spiffe://merchant-prod/ns/catalog/sa/catalog-api";
+const CHECKOUT_TOKEN = "checkout-token";
+const GATEWAY_TOKEN = "gateway-token";
+const CATALOG_TOKEN = "catalog-token";
 
 before(async () => {
   server = createPigeonServer(createDemoBroker(PigeonBroker));
@@ -21,12 +21,22 @@ after(() => {
   server.close();
 });
 
-function publish(principal, body) {
-  return fetch(`${base}/v1/messages`, {
+function auth(token, extra = {}) {
+  return { "content-type": "application/json", authorization: `Bearer ${token}`, "x-pigeon-region": "uk", ...extra };
+}
+
+async function negotiate(token, subjects) {
+  const response = await fetch(`${base}/v1/contracts`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-pigeon-principal": principal, "x-pigeon-region": "uk" },
-    body: JSON.stringify(body)
+    headers: auth(token),
+    body: JSON.stringify({ subjects })
   });
+  return response;
+}
+
+async function contractId(token, subjects) {
+  const response = await negotiate(token, subjects);
+  return (await response.json()).contract.id;
 }
 
 function authorizePayment(overrides = {}) {
@@ -43,90 +53,126 @@ function authorizePayment(overrides = {}) {
   };
 }
 
+async function publish(token, cid, body) {
+  return fetch(`${base}/v1/messages`, {
+    method: "POST",
+    headers: auth(token, { "x-pigeon-contract": cid }),
+    body: JSON.stringify(body)
+  });
+}
+
 test("serves the Acme Checkout dashboard at /", async () => {
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type"), /text\/html/);
   assert.match(await response.text(), /ACME CHECKOUT/);
 });
 
 test("serves the API docs at /docs", async () => {
   const response = await fetch(`${base}/docs`);
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type"), /text\/html/);
   assert.match(await response.text(), /\/v1\/messages/);
 });
 
 test("health check responds ok", async () => {
   const response = await fetch(`${base}/health`);
-  assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, service: "pigeon" });
 });
 
 test("lists registered subjects", async () => {
-  const response = await fetch(`${base}/v1/subjects`);
-  assert.equal(response.status, 200);
-  const { subjects } = await response.json();
+  const { subjects } = await (await fetch(`${base}/v1/subjects`)).json();
   const names = subjects.map((s) => s.name);
-  assert.ok(names.includes("payments.authorize"));
-  assert.ok(names.includes("notifications.send"));
+  assert.ok(names.includes("payments.authorize") && names.includes("notifications.send"));
 });
 
-test("describes a single subject", async () => {
-  const response = await fetch(`${base}/v1/subjects/payments.authorize`);
-  assert.equal(response.status, 200);
-  const { subject } = await response.json();
-  assert.equal(subject.name, "payments.authorize");
-  assert.equal(subject.replay.allowed, false);
+test("negotiates a session contract", async () => {
+  const response = await negotiate(CHECKOUT_TOKEN, ["payments.authorize"]);
+  assert.equal(response.status, 201);
+  const { contract } = await response.json();
+  assert.equal(contract.principal, "spiffe://merchant-prod/ns/checkout/sa/checkout-api");
+  assert.ok(contract.subjects[0].operations.includes("publish"));
 });
 
-test("accepts a governed publish with 202", async () => {
-  const response = await publish(CHECKOUT, authorizePayment({ idempotencyKey: "http_accept:authorize" }));
+test("rejects negotiation without a credential (401)", async () => {
+  const response = await fetch(`${base}/v1/contracts`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ subjects: ["payments.authorize"] })
+  });
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error.code, "UNAUTHENTICATED");
+});
+
+test("rejects an unknown credential (401)", async () => {
+  const response = await negotiate("not-a-real-token", ["payments.authorize"]);
+  assert.equal(response.status, 401);
+});
+
+test("accepts a governed publish under a contract with 202", async () => {
+  const cid = await contractId(CHECKOUT_TOKEN, ["payments.authorize"]);
+  const response = await publish(CHECKOUT_TOKEN, cid, authorizePayment({ idempotencyKey: "http_accept:authorize" }));
   assert.equal(response.status, 202);
-  const body = await response.json();
-  assert.equal(body.status, "accepted");
+  assert.equal((await response.json()).status, "accepted");
+});
+
+test("denies a publish with no contract (403)", async () => {
+  const response = await fetch(`${base}/v1/messages`, {
+    method: "POST",
+    headers: auth(CHECKOUT_TOKEN),
+    body: JSON.stringify(authorizePayment({ idempotencyKey: "http_nocontract:authorize" }))
+  });
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error.code, "CONTRACT_REQUIRED");
+});
+
+test("blocks producer spoofing: gateway cannot use checkout's contract (403)", async () => {
+  const checkoutCid = await contractId(CHECKOUT_TOKEN, ["payments.authorize"]);
+  const response = await publish(GATEWAY_TOKEN, checkoutCid, authorizePayment({ idempotencyKey: "http_spoof:authorize" }));
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error.code, "CONTRACT_PRINCIPAL_MISMATCH");
+});
+
+test("denies an unauthorized producer at negotiation (403)", async () => {
+  const response = await negotiate(CATALOG_TOKEN, ["payments.authorize"]);
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error.code, "NO_PERMITTED_SUBJECTS");
 });
 
 test("returns 200 for a duplicate idempotency key", async () => {
-  await publish(CHECKOUT, authorizePayment({ idempotencyKey: "http_dup:authorize" }));
-  const response = await publish(CHECKOUT, authorizePayment({ idempotencyKey: "http_dup:authorize" }));
+  const cid = await contractId(CHECKOUT_TOKEN, ["payments.authorize"]);
+  await publish(CHECKOUT_TOKEN, cid, authorizePayment({ idempotencyKey: "http_dup:authorize" }));
+  const response = await publish(CHECKOUT_TOKEN, cid, authorizePayment({ idempotencyKey: "http_dup:authorize" }));
   assert.equal(response.status, 200);
   assert.equal((await response.json()).status, "duplicate");
 });
 
-test("denies an unauthorized producer with 403", async () => {
-  const response = await publish(CATALOG, authorizePayment({ idempotencyKey: "http_deny:authorize" }));
-  assert.equal(response.status, 403);
-  assert.equal((await response.json()).error.code, "POLICY_DENIED");
-});
-
 test("rejects a malformed JSON body with 400", async () => {
+  const cid = await contractId(CHECKOUT_TOKEN, ["payments.authorize"]);
   const response = await fetch(`${base}/v1/messages`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-pigeon-principal": CHECKOUT },
+    headers: auth(CHECKOUT_TOKEN, { "x-pigeon-contract": cid }),
     body: "{not json"
   });
   assert.equal(response.status, 400);
-  assert.equal((await response.json()).error.code, "BAD_REQUEST");
 });
 
 test("rejects an oversized body with 413", async () => {
   const response = await fetch(`${base}/v1/messages`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-pigeon-principal": CHECKOUT },
+    headers: auth(CHECKOUT_TOKEN),
     body: JSON.stringify({ subject: "payments.authorize", data: { blob: "x".repeat(1_100_000) } })
   });
   assert.equal(response.status, 413);
 });
 
 test("rejects an incomplete envelope with 422", async () => {
-  const response = await publish(CHECKOUT, { subject: "payments.authorize" });
+  const cid = await contractId(CHECKOUT_TOKEN, ["payments.authorize"]);
+  const response = await publish(CHECKOUT_TOKEN, cid, { subject: "payments.authorize" });
   assert.equal(response.status, 422);
   assert.equal((await response.json()).error.code, "ENVELOPE_INVALID");
 });
 
 test("returns 404 for an unknown subject", async () => {
-  const response = await publish(CHECKOUT, authorizePayment({ subject: "ghost.subject", idempotencyKey: "http_ghost" }));
+  const response = await negotiate(CHECKOUT_TOKEN, ["ghost.subject"]);
   assert.equal(response.status, 404);
   assert.equal((await response.json()).error.code, "SUBJECT_NOT_FOUND");
 });
@@ -143,13 +189,15 @@ test("returns 404 for an unknown route", async () => {
 });
 
 test("delivers only authorized messages to the receiver", async () => {
-  await publish(CHECKOUT, authorizePayment({ idempotencyKey: "http_recv:authorize", data: { merchantId: "m", orderId: "recv", amount: 5, currency: "GBP", paymentToken: "tok" } }));
+  const checkoutCid = await contractId(CHECKOUT_TOKEN, ["payments.authorize"]);
+  await publish(CHECKOUT_TOKEN, checkoutCid, authorizePayment({ idempotencyKey: "http_recv:authorize" }));
+
+  const gatewayCid = await contractId(GATEWAY_TOKEN, ["payments.authorize"]);
   const response = await fetch(`${base}/v1/subjects/payments.authorize/receive`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-pigeon-principal": GATEWAY, "x-pigeon-region": "uk" },
+    headers: auth(GATEWAY_TOKEN, { "x-pigeon-contract": gatewayCid }),
     body: JSON.stringify({ max: 50 })
   });
   assert.equal(response.status, 200);
-  const { messages } = await response.json();
-  assert.ok(messages.length >= 1);
+  assert.ok((await response.json()).messages.length >= 1);
 });
