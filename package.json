@@ -28,6 +28,7 @@
   "files": [
     "src",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "NOTICE"
   ],
@@ -38,6 +39,7 @@
     "simulate:receiver": "node --preserve-symlinks --preserve-symlinks-main examples/container-receiver.js",
     "start": "node --preserve-symlinks --preserve-symlinks-main src/server.js",
     "build:banner": "node scripts/build-banner.js",
+    "version:next": "node scripts/next-version.mjs",
     "test": "node --preserve-symlinks --preserve-symlinks-main --test"
   },
   "engines": {
