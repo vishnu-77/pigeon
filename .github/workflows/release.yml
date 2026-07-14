@@ -96,11 +96,25 @@ jobs:
       - name: Build release notes from CHANGELOG
         run: node scripts/changelog-section.mjs "$VERSION" > RELEASE_NOTES.md
 
+      # Best-effort: an npm failure (e.g. an unpublishable credential) must not sink the
+      # whole release - the git tag + GitHub Release below still complete. The step is
+      # marked failed in the run so the gap is visible; re-run once npm is sorted.
       - name: Publish to npm
+        id: npm_publish
         if: ${{ env.NPM_TOKEN != '' }}
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
+
+      - name: Note npm publish outcome
+        if: ${{ env.NPM_TOKEN != '' }}
+        run: |
+          if [ "${{ steps.npm_publish.outcome }}" = "success" ]; then
+            echo "✅ Published to npm." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ npm publish failed (see the step above) - the GitHub release still completed. Fix the npm credential and re-run to publish." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
