@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "required": ["merchantId", "amount", "currency", "paymentToken", "orderId"],
+  "properties": {
+    "merchantId": { "type": "string" },
+    "orderId": { "type": "string" },
+    "amount": { "type": "number" },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "paymentToken": { "type": "string" },
+    "card": {
+      "type": "object",
+      "properties": {
+        "pan": { "type": "string" }
+      }
+    }
+  }
+}

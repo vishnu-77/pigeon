@@ -311,6 +311,29 @@ test("denies replay when no reason is supplied", () => {
   );
 });
 
+test("routes a reply to a waiting requester by correlationId", () => {
+  const broker = createDemoBroker(PigeonBroker);
+  const orders = broker.connect(ordersApi, { subjects: ["notifications.send"] });
+  const result = orders.request("notifications.send", notification(), notifyOptions({ correlationId: "corr-1" }));
+
+  const reply = broker.takeReply("corr-1");
+  assert.equal(reply.id, result.message.id);
+  assert.equal(broker.takeReply("corr-1"), null); // consumed
+});
+
+test("work queue does not redeliver an acked message", () => {
+  const broker = createDemoBroker(PigeonBroker);
+  const orders = broker.connect(ordersApi, { subjects: ["notifications.send"] });
+  const notifier = broker.connect({ principal: { id: "spiffe://merchant-prod/ns/notify/sa/notifier-worker" }, region: "uk" }, { subjects: ["notifications.send"] });
+  const { message } = orders.request("notifications.send", notification(), notifyOptions());
+
+  const first = notifier.receive("notifications.send", { max: 10 });
+  assert.equal(first.length, 1);
+  notifier.ack("notifications.send", message.id);
+  const second = notifier.receive("notifications.send", { max: 10 });
+  assert.equal(second.length, 0);
+});
+
 test("forbids raw SSN on the notifications subject", () => {
   const broker = createDemoBroker(PigeonBroker);
   const orders = broker.connect(ordersApi, { subjects: ["notifications.send"] });

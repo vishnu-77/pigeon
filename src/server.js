@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { PigeonBroker } from "./broker.js";
-import { createDemoBroker } from "./subjects.js";
+import { AuditLog } from "./audit.js";
+import { FileStore } from "./file-store.js";
+import { createDemoBroker, registerDemoSubjects } from "./subjects.js";
 import { isPigeonError, PigeonError } from "./errors.js";
 
 const MAX_BODY_BYTES = 1_048_576; // 1 MiB
@@ -208,10 +210,24 @@ async function readJson(request) {
   }
 }
 
+// When PIGEON_DATA_DIR is set, back the broker with a durable append-only store and
+// a durable, hash-chained audit log so state and evidence survive restarts (FND-03/05).
+export function createDemoBrokerForEnv() {
+  const dataDir = process.env.PIGEON_DATA_DIR;
+  if (!dataDir) {
+    return createDemoBroker(PigeonBroker);
+  }
+  const broker = new PigeonBroker({
+    store: new FileStore({ path: join(dataDir, "messages.log") }),
+    audit: new AuditLog({ path: join(dataDir, "audit.log") })
+  });
+  return registerDemoSubjects(broker);
+}
+
 // Start the server only when this file is run directly (not when imported by tests).
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const port = Number(process.env.PORT ?? 8787);
-  const server = createPigeonServer();
+  const server = createPigeonServer(createDemoBrokerForEnv());
   server.listen(port, () => {
     console.log(`Pigeon broker listening on http://localhost:${port}`);
   });
