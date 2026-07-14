@@ -1,7 +1,7 @@
 {
   "name": "pigeonmq",
   "version": "1.0.0",
-  "description": "Policy-native messaging prototype: messages carry intent, subjects carry policy, brokers enforce guarantees.",
+  "description": "Policy-compiled messaging broker for governed async communication: subject policies compile into runtime session contracts enforced on every message.",
   "type": "module",
   "main": "src/index.js",
   "bin": {
@@ -9,12 +9,15 @@
   },
   "keywords": [
     "messaging",
-    "policy",
     "broker",
-    "cloudevents",
+    "policy-compiled",
+    "session-contracts",
     "governance",
+    "async",
+    "audit",
+    "quarantine",
     "idempotency",
-    "audit"
+    "schema-validation"
   ],
   "author": "vishnu-77",
   "homepage": "https://github.com/vishnu-77/pigeon#readme",
