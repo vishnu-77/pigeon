@@ -44,11 +44,16 @@ Phases are defined in [vision.md](vision.md#roadmap). This table tracks their st
 
 ## Next up
 
-- Decide the first durable store behind the pluggable seam
-  ([ADR-0002](adr/0002-in-memory-storage-pluggable-store.md)) - the main gate into Phase 1.
-- Replace asserted header identity with authenticated identity
-  ([ADR-0004](adr/0004-header-based-identity-for-mvp.md)).
-- Queue leases for delivery (currently cursor-based).
+The full ranked work list from the 2026-07-14 state audit lives in
+[backlog.md](backlog.md). The near-term head of that list:
+
+- **P0** - Bind producer identity to the authenticated session; stop trusting the
+  `x-pigeon-principal` header ([backlog FND-01](backlog.md#fnd-01---bind-producer-identity-to-the-authenticated-session)).
+- **P0** - Decide the session-contract vs subject-policy model and record it as an ADR
+  ([backlog FND-02](backlog.md#fnd-02---decide-session-contract-vs-subject-policy-model)).
+- **P1** - Enrich + persist audit events, compile policy lookups, and add the first durable
+  store behind the pluggable seam
+  ([ADR-0002](adr/0002-in-memory-storage-pluggable-store.md)).
 
 ## Known limitations (accepted MVP boundaries)
 
