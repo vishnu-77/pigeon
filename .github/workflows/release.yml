@@ -1,23 +1,44 @@
-name: Release
+name: Release Pipeline
 
-# Fires when a SemVer tag (e.g. v0.2.0) is pushed. Create tags with
-# `npm version <patch|minor|major>` then `git push --follow-tags` - see CONTRIBUTING.md.
+# Two ways to cut a release:
+#   1. Automated - GitHub UI: Actions -> "Release Pipeline" -> "Run workflow" -> pick a
+#      bump (patch/minor/major). This runs tests, `npm version <bump>` (commit + tag),
+#      pushes, publishes, and creates the GitHub Release - all in one run.
+#   2. Manual - locally run `npm version <bump>` then `git push --follow-tags`; the pushed
+#      tag triggers this same pipeline. See CONTRIBUTING.md.
+#
+# A normal push to main does NOT release - only a v* tag or a manual dispatch does.
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semantic version bump
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: write   # create the GitHub Release
+  contents: write   # push the version commit/tag and create the GitHub Release
   id-token: write   # npm provenance (OIDC), harmless if npm publish is skipped
 
 jobs:
   release:
     name: Publish release
     runs-on: ubuntu-latest
+    # The `secrets` context is not allowed in step `if:`, so surface the token as env.
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so `npm version` can commit and tag
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -25,27 +46,44 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Verify tag matches package.json version
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          pkg="$(node -p "require('./package.json').version")"
-          if [ "$tag" != "$pkg" ]; then
-            echo "::error::Tag v$tag does not match package.json version $pkg."
-            echo "Bump with 'npm version' so the tag and package.json agree."
-            exit 1
-          fi
-          echo "Releasing v$pkg"
-
+      # Gate the release on a green build BEFORE bumping/tagging.
       - name: Run tests
         run: npm test
 
       - name: Run demo (smoke test)
         run: npm run demo
 
+      # Automated path: bump, tag, and push. The tag is pushed with GITHUB_TOKEN, which
+      # deliberately does NOT re-trigger the tag path below (no double release).
+      - name: Bump, tag, and push
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version "${{ inputs.bump }}" -m "release: v%s"
+          git push --follow-tags
+
+      - name: Resolve version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          # On the tag path, make sure the tag and package.json agree.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$version" ]; then
+              echo "::error::Tag v$tag does not match package.json version $version."
+              echo "Bump with 'npm version' so the tag and package.json agree."
+              exit 1
+            fi
+          fi
+          echo "Releasing v$version"
+
+      - name: Build release notes from CHANGELOG
+        run: node scripts/changelog-section.mjs "$VERSION" > RELEASE_NOTES.md
+
       - name: Publish to npm
-        # Only runs if an NPM_TOKEN secret is configured. Without it, the release
-        # is GitHub-only and this step is skipped rather than failing the job.
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        # Runs only when an NPM_TOKEN secret is configured; otherwise GitHub-only.
+        if: ${{ env.NPM_TOKEN != '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
@@ -53,6 +91,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(env.VERSION, '-') }}
