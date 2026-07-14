@@ -96,19 +96,19 @@ jobs:
       - name: Build release notes from CHANGELOG
         run: node scripts/changelog-section.mjs "$VERSION" > RELEASE_NOTES.md
 
-      # Best-effort: an npm failure (e.g. an unpublishable credential) must not sink the
-      # whole release - the git tag + GitHub Release below still complete. The step is
-      # marked failed in the run so the gap is visible; re-run once npm is sorted.
-      - name: Publish to npm
+      # Trusted Publishing (OIDC) needs a recent npm; Node 22 ships npm 10.x.
+      - name: Ensure npm supports Trusted Publishing
+        run: npm install -g npm@latest
+
+      # Publish via GitHub OIDC - no token, no 2FA. Requires a Trusted Publisher
+      # configured for this package on npmjs.com (repo vishnu-77/pigeon, workflow
+      # release.yml). Best-effort so a publish gap never sinks the git/GitHub release.
+      - name: Publish to npm (Trusted Publishing / OIDC)
         id: npm_publish
-        if: ${{ env.NPM_TOKEN != '' }}
         continue-on-error: true
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
 
       - name: Note npm publish outcome
-        if: ${{ env.NPM_TOKEN != '' }}
         run: |
           if [ "${{ steps.npm_publish.outcome }}" = "success" ]; then
             echo "✅ Published to npm." >> "$GITHUB_STEP_SUMMARY"
