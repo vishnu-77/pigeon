@@ -1,7 +1,8 @@
 name: Release
 
-# Fires when a SemVer tag (e.g. v0.2.0) is pushed. Create tags with
-# `npm version <patch|minor|major>` then `git push --follow-tags` - see CONTRIBUTING.md.
+# Fires ONLY when a SemVer tag (e.g. v0.2.0) is pushed. A normal push to main (or any
+# branch) does NOT trigger a release. Create tags with `npm version <patch|minor|major>`
+# then `git push --follow-tags` - see CONTRIBUTING.md.
 on:
   push:
     tags:
@@ -15,6 +16,10 @@ jobs:
   release:
     name: Publish release
     runs-on: ubuntu-latest
+    # The `secrets` context is not allowed in step `if:` conditions, so surface the
+    # token as a job-level env var and test that instead.
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,10 +47,13 @@ jobs:
       - name: Run demo (smoke test)
         run: npm run demo
 
+      - name: Build release notes from CHANGELOG
+        run: node scripts/changelog-section.mjs "${GITHUB_REF_NAME#v}" > RELEASE_NOTES.md
+
       - name: Publish to npm
-        # Only runs if an NPM_TOKEN secret is configured. Without it, the release
-        # is GitHub-only and this step is skipped rather than failing the job.
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        # Runs only when an NPM_TOKEN secret is configured; otherwise the release is
+        # GitHub-only and this step is skipped rather than failing the job.
+        if: ${{ env.NPM_TOKEN != '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
@@ -53,6 +61,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
