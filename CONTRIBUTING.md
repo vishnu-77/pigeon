@@ -69,6 +69,57 @@ See [docs/local-container-simulation.md](docs/local-container-simulation.md).
 3. Keep commits focused and messages descriptive.
 4. Open a pull request against `main` and fill out the PR template.
 
+## Recording decisions (ADRs)
+
+Significant technical decisions are captured as [Architecture Decision
+Records](docs/adr/) - short docs describing the context, the decision, and the
+consequences we accepted. Write one when a choice is hard to reverse, shapes the public
+contract, or would otherwise survive only as tribal knowledge. Copy
+[docs/adr/0000-template.md](docs/adr/0000-template.md) to the next number, fill it in, and
+add a row to the [ADR index](docs/adr/README.md).
+
+## Keeping the status current
+
+[docs/progress.md](docs/progress.md) is the living snapshot of what ships today, what is in
+flight, and what is next. When you land a milestone or shift the near-term focus, update it
+in the same PR. It links to [CHANGELOG.md](CHANGELOG.md) (history) and the
+[Roadmap](docs/vision.md#roadmap) (the plan) rather than duplicating them.
+
+## Releasing
+
+Pigeon follows [Semantic Versioning](https://semver.org). Releases are cut from
+`main` and driven by Git tags - **pushing a `v*` tag is the release trigger.**
+
+1. Make sure `main` is green and you're up to date.
+2. See the suggested next version, computed from Conventional Commits since the last tag:
+
+   ```bash
+   npm run version:next
+   ```
+
+   (Inside Claude Code, the `/version` command wraps this and can apply the bump for you.)
+3. Move the relevant notes from the `## [Unreleased]` section of
+   [CHANGELOG.md](CHANGELOG.md) into a new version section, and update the compare
+   links at the bottom.
+4. Bump the version and create the tag in one step:
+
+   ```bash
+   npm version patch   # or: minor | major
+   ```
+
+   This updates `package.json` and creates a matching `vX.Y.Z` commit + tag.
+5. Push the commit and tag:
+
+   ```bash
+   git push --follow-tags
+   ```
+
+The [`release` workflow](.github/workflows/release.yml) then verifies the tag
+matches `package.json`, runs the test suite and demo, creates a GitHub Release
+with auto-generated notes, and - if an `NPM_TOKEN` repository secret is
+configured - publishes to npm with provenance. Without that secret the release
+is GitHub-only; the publish step is skipped rather than failing.
+
 ## Reporting security issues
 
 Please do **not** open a public issue for security vulnerabilities. See

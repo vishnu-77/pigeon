@@ -368,12 +368,15 @@ The MVP is Phase 0 (a formal, executable model). The path to a production system
 6. SPIFFE mTLS identity extraction at the HTTP/gRPC boundary.
 7. Kafka / NATS / RabbitMQ / SQS bridge adapters (govern without a big-bang migration).
 
-Full phased roadmap in [docs/vision.md](docs/vision.md#roadmap).
+Full phased roadmap in [docs/vision.md](docs/vision.md#roadmap). Current status - what
+ships today, what is in flight, and what is next - is tracked in
+[docs/progress.md](docs/progress.md).
 
 ## Contributing
 
 Contributions are welcome - see [CONTRIBUTING.md](CONTRIBUTING.md) for development
-setup, project layout, and how to add a subject. Please also read the
+setup, project layout, and how to add a subject. Significant technical decisions are
+recorded as [Architecture Decision Records](docs/adr/). Please also read the
 [Code of Conduct](CODE_OF_CONDUCT.md). For security issues, follow
 [SECURITY.md](SECURITY.md) rather than opening a public issue.
 
