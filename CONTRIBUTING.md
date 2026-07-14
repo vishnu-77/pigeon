@@ -87,8 +87,22 @@ in the same PR. It links to [CHANGELOG.md](CHANGELOG.md) (history) and the
 
 ## Releasing
 
-Pigeon follows [Semantic Versioning](https://semver.org). Releases are cut from
-`main` and driven by Git tags - **pushing a `v*` tag is the release trigger.**
+Pigeon follows [Semantic Versioning](https://semver.org). There are two ways to cut a
+release; both run the same **Release Pipeline** (`.github/workflows/release.yml`).
+
+### Automated (recommended)
+
+In GitHub: **Actions -> "Release Pipeline" -> "Run workflow"**, pick a bump
+(`patch`/`minor`/`major`), and run it. The pipeline runs tests + demo, then
+`npm version <bump>` (commit + tag), pushes, publishes to npm (if `NPM_TOKEN` is set),
+and creates the GitHub Release. Nothing to run locally.
+
+> Note: the pipeline pushes the version commit to `main`. If `main` is a protected branch,
+> allow the `github-actions[bot]` to push (or use the manual flow below).
+
+### Manual
+
+Pushing a `v*` tag is also a release trigger:
 
 1. Make sure `main` is green and you're up to date.
 2. See the suggested next version, computed from Conventional Commits since the last tag:
