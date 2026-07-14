@@ -2,33 +2,38 @@ import { PigeonError } from "./errors.js";
 
 /**
  * MemoryStore holds the broker's mutable data plane: the per-subject message
- * log, the idempotency ledger, per-consumer delivery cursors, and the
- * quarantine evidence store.
+ * log, the idempotency ledger (with TTL), per-consumer delivery cursors, the
+ * quarantine evidence store, and pending request/reply correlations.
  *
  * It exists so the broker never touches raw Maps directly. Any durable backend
- * (SQLite, RocksDB, an append-only log, ...) can be dropped in later by
+ * (a file-backed log, SQLite, RocksDB, ...) can be dropped in later by
  * implementing the same synchronous method surface:
  *
- *   initSubject(subject)                 -> void
- *   appendMessage(subject, message)      -> committed message (with sequence)
- *   listMessages(subject)                -> message[]
- *   findMessage(subject, id)             -> message | undefined
- *   getCursor(key)                       -> number
- *   setCursor(key, position)             -> void
- *   getIdempotent(subject, key)          -> message | null
- *   setIdempotent(subject, key, message) -> void
- *   addQuarantine(record)                -> record (with id)
- *   listQuarantine()                     -> record[]
+ *   initSubject(subject)                        -> void
+ *   appendMessage(subject, message)             -> committed message (with sequence)
+ *   listMessages(subject)                       -> message[]
+ *   findMessage(subject, id)                    -> message | undefined
+ *   getCursor(key)                              -> number
+ *   setCursor(key, position)                    -> void
+ *   getIdempotent(subject, key, ttlMs?)         -> message | null   (TTL-aware)
+ *   setIdempotent(subject, key, message)        -> void
+ *   addQuarantine(record)                       -> record (with id)
+ *   findQuarantine(id)                          -> record | undefined
+ *   listQuarantine()                            -> record[]
+ *   resolveReply(correlationId, message)        -> void
+ *   takeReply(correlationId)                    -> message | null
  *
  * Subject *configuration* stays on the broker; only mutable runtime state
  * lives here.
  */
 export class MemoryStore {
-  constructor() {
+  constructor({ now = () => Date.now() } = {}) {
+    this.now = now;
     this.messages = new Map();
     this.idempotency = new Map();
     this.cursors = new Map();
     this.quarantine = [];
+    this.replies = new Map();
   }
 
   initSubject(subject) {
@@ -60,12 +65,22 @@ export class MemoryStore {
     this.cursors.set(key, position);
   }
 
-  getIdempotent(subject, key) {
-    return this.idempotency.get(`${subject}:${key}`) ?? null;
+  // TTL-aware idempotency read (FND-06). An entry older than ttlMs is expired: the
+  // dedupe window has passed, so the key is treated as new and the record evicted.
+  getIdempotent(subject, key, ttlMs) {
+    const entry = this.idempotency.get(`${subject}:${key}`);
+    if (!entry) {
+      return null;
+    }
+    if (ttlMs && this.now() - entry.at > ttlMs) {
+      this.idempotency.delete(`${subject}:${key}`);
+      return null;
+    }
+    return entry.message;
   }
 
   setIdempotent(subject, key, message) {
-    this.idempotency.set(`${subject}:${key}`, message);
+    this.idempotency.set(`${subject}:${key}`, { message, at: this.now() });
   }
 
   addQuarantine(record) {
@@ -74,8 +89,24 @@ export class MemoryStore {
     return stored;
   }
 
+  findQuarantine(id) {
+    return this.quarantine.find((record) => record.id === id);
+  }
+
   listQuarantine() {
     return [...this.quarantine];
+  }
+
+  // Request/reply correlation (FND-09). A published reply carrying a correlationId
+  // is parked here for the waiting requester to collect with takeReply().
+  resolveReply(correlationId, message) {
+    this.replies.set(correlationId, message);
+  }
+
+  takeReply(correlationId) {
+    const message = this.replies.get(correlationId) ?? null;
+    this.replies.delete(correlationId);
+    return message;
   }
 
   #log(subject) {

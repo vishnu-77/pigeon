@@ -24,6 +24,13 @@ const gateway = { principal: { id: "spiffe://merchant-prod/ns/payments/sa/gatewa
 const orders = { principal: { id: "spiffe://merchant-prod/ns/orders/sa/orders-api" }, region: "uk" };
 const notifier = { principal: { id: "spiffe://merchant-prod/ns/notify/sa/notifier-worker" }, region: "uk" };
 
+// Each principal negotiates a session contract up front; every message below runs
+// under its contract (FND-02). The attacker cannot negotiate one at all.
+const checkoutSession = broker.connect(checkout, { subjects: ["payments.authorize"] });
+const gatewaySession = broker.connect(gateway, { subjects: ["payments.authorize"] });
+const ordersSession = broker.connect(orders, { subjects: ["notifications.send"] });
+const notifierSession = broker.connect(notifier, { subjects: ["notifications.send"] });
+
 header();
 
 section("Subject", "payments.authorize", "request/reply · PCI · idempotent · replay denied · region uk|eu");
@@ -38,27 +45,27 @@ gates([
   ["sensitive", "no raw card.pan present", true],
   ["idempotency", "order_456:authorize is new", true]
 ]);
-const accepted = pay(checkout, { orderId: "order_456", idempotencyKey: "order_456:authorize" });
+const accepted = pay(checkoutSession, { orderId: "order_456", idempotencyKey: "order_456:authorize" });
 outcome(accepted);
 
 scene(2, "Retry with the same idempotency key (no double charge)");
 hop("SENDER", "BROKER", "publish authorize_payment (order_456) - retry");
-const retry = pay(checkout, { orderId: "order_456", idempotencyKey: "order_456:authorize" });
+const retry = pay(checkoutSession, { orderId: "order_456", idempotencyKey: "order_456:authorize" });
 outcome(retry, "the customer is NOT charged twice - the original message is returned");
 
-scene(3, "Unauthorized producer is denied at admission");
-hop("ATTACKER", "BROKER", "publish authorize_payment (order_789)");
-const denied = pay(attacker, { orderId: "order_789", idempotencyKey: "order_789:authorize" });
-outcome(denied);
+scene(3, "Unauthorized producer is denied at contract negotiation");
+hop("ATTACKER", "BROKER", "negotiate contract for payments.authorize");
+const denied = safe(() => broker.connect(attacker, { subjects: ["payments.authorize"] }));
+outcome(denied, "catalog-api holds no policy grant, so no contract is ever issued");
 
 scene(4, "Raw card PAN is denied and quarantined as evidence");
 hop("SENDER", "BROKER", "publish authorize_payment with card.pan");
-const pan = pay(checkout, { orderId: "order_999", idempotencyKey: "order_999:authorize", extra: { card: { pan: "4111111111111111" } } });
+const pan = pay(checkoutSession, { orderId: "order_999", idempotencyKey: "order_999:authorize", extra: { card: { pan: "4111111111111111" } } });
 outcome(pan);
 
 scene(5, "Receiver pulls only the authorized message");
 hop("BROKER", "RECEIVER", "gateway-adapter receives payments.authorize");
-const received = safe(() => broker.receive("payments.authorize", gateway, { max: 10 }));
+const received = safe(() => gatewaySession.receive("payments.authorize", { max: 10 }));
 if (Array.isArray(received)) {
   console.log(`   ${green("DELIVERED")} ${received.length} message(s): ${received.map((m) => m.data.orderId).join(", ")}`);
   console.log(`   ${dim("denied and quarantined messages never reach the receiver")}`);
@@ -66,28 +73,28 @@ if (Array.isArray(received)) {
 
 scene(6, "Replay is a governed action - denied on this subject");
 hop("RECEIVER", "BROKER", "replay payments.authorize");
-const replay = safe(() => broker.replay("payments.authorize", gateway, { reason: "debugging" }));
+const replay = safe(() => gatewaySession.replay("payments.authorize", { reason: "debugging" }));
 outcome(replay);
 
 section("Subject", "notifications.send", "work queue · PII · replay allowed (audited ops only)");
 
 scene(7, "A different subject, different governance");
 hop("SENDER", "BROKER", "orders-api publishes send_notification");
-const notify = safe(() => broker.request("notifications.send", {
+const notify = safe(() => ordersSession.request("notifications.send", {
   recipientId: "cust_42", channel: "email", templateId: "order_shipped", params: { orderId: "order_456" }
-}, orders, { intent: "send_notification", idempotencyKey: "order_456:shipped", classification: "pii", region: "uk" }));
+}, { intent: "send_notification", idempotencyKey: "order_456:shipped", classification: "pii", region: "uk" }));
 outcome(notify);
 
 hop("BROKER", "RECEIVER", "notifier-worker receives notifications.send");
-const notifyReceived = safe(() => broker.receive("notifications.send", notifier, { max: 10 }));
+const notifyReceived = safe(() => notifierSession.receive("notifications.send", { max: 10 }));
 if (Array.isArray(notifyReceived)) {
   console.log(`   ${green("DELIVERED")} ${notifyReceived.length} notification(s)`);
 }
 
 hop("SENDER", "BROKER", "publish notification carrying recipient.ssn (PII leak)");
-const ssn = safe(() => broker.request("notifications.send", {
+const ssn = safe(() => ordersSession.request("notifications.send", {
   recipientId: "cust_42", channel: "email", templateId: "order_shipped", recipient: { ssn: "078-05-1120" }
-}, orders, { intent: "send_notification", idempotencyKey: "order_456:leak", classification: "pii", region: "uk" }));
+}, { intent: "send_notification", idempotencyKey: "order_456:leak", classification: "pii", region: "uk" }));
 outcome(ssn);
 
 auditTable();
@@ -96,15 +103,15 @@ footer();
 
 // --- helpers ------------------------------------------------------------
 
-function pay(context, { orderId, idempotencyKey, extra = {} }) {
-  return safe(() => broker.request("payments.authorize", {
+function pay(session, { orderId, idempotencyKey, extra = {} }) {
+  return safe(() => session.request("payments.authorize", {
     merchantId: "merchant_123",
     orderId,
     amount: 42.5,
     currency: "GBP",
     paymentToken: "tok_visa_abc",
     ...extra
-  }, context, {
+  }, {
     intent: "authorize_payment",
     idempotencyKey,
     classification: "pci",

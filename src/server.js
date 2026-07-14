@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { PigeonBroker } from "./broker.js";
-import { createDemoBroker } from "./subjects.js";
+import { AuditLog } from "./audit.js";
+import { FileStore } from "./file-store.js";
+import { createDemoBroker, registerDemoSubjects } from "./subjects.js";
 import { isPigeonError, PigeonError } from "./errors.js";
 
 const MAX_BODY_BYTES = 1_048_576; // 1 MiB
@@ -21,10 +23,12 @@ const routes = [
   { method: "GET", pattern: /^\/health$/, handler: health },
   { method: "GET", pattern: /^\/v1\/subjects$/, handler: listSubjects },
   { method: "GET", pattern: /^\/v1\/subjects\/([^/]+)$/, handler: describeSubject },
+  { method: "POST", pattern: /^\/v1\/contracts$/, handler: negotiateContract },
   { method: "POST", pattern: /^\/v1\/messages$/, handler: publishMessage },
   { method: "POST", pattern: /^\/v1\/subjects\/([^/]+)\/receive$/, handler: receiveMessages },
   { method: "GET", pattern: /^\/v1\/audit$/, handler: listAudit },
-  { method: "GET", pattern: /^\/v1\/quarantine$/, handler: listQuarantine }
+  { method: "GET", pattern: /^\/v1\/quarantine$/, handler: listQuarantine },
+  { method: "POST", pattern: /^\/v1\/quarantine\/([^/]+)\/release$/, handler: releaseQuarantine }
 ];
 
 export function createPigeonServer(broker = createDemoBroker(PigeonBroker)) {
@@ -83,16 +87,35 @@ function describeSubject({ response, broker, params }) {
   send(response, 200, { subject });
 }
 
+async function negotiateContract({ request, response, broker }) {
+  const body = await readJson(request);
+  const context = contextFromAuth(request, broker);
+  const contract = broker.negotiate(context, { subjects: body.subjects, ttlMs: body.ttlMs });
+  send(response, 201, { contract });
+}
+
 async function publishMessage({ request, response, broker }) {
   const body = await readJson(request);
-  const result = broker.publish(body, contextFromHeaders(request));
+  const context = contextFromAuth(request, broker);
+  if (body.contractId) context.contractId = body.contractId;
+  const result = broker.publish(body, context);
   send(response, result.status === "duplicate" ? 200 : 202, result);
 }
 
 async function receiveMessages({ request, response, broker, params }) {
   const body = await readJson(request);
-  const messages = broker.receive(params[0], contextFromHeaders(request), { max: body.max ?? 1 });
+  const context = contextFromAuth(request, broker);
+  if (body.contractId) context.contractId = body.contractId;
+  const messages = broker.receive(params[0], context, { max: body.max ?? 1 });
   send(response, 200, { messages });
+}
+
+async function releaseQuarantine({ request, response, broker, params }) {
+  const body = await readJson(request);
+  const context = contextFromAuth(request, broker);
+  if (body.contractId) context.contractId = body.contractId;
+  const result = broker.releaseQuarantine(params[0], context);
+  send(response, 202, result);
 }
 
 function listAudit({ response, broker }) {
@@ -115,22 +138,31 @@ function subjectSummary(subject) {
   };
 }
 
-function contextFromHeaders(request) {
+// Identity is resolved server-side from the bearer credential and bound to the
+// request context. A client-supplied principal is never trusted (FND-01).
+function contextFromAuth(request, broker) {
   return {
-    principal: {
-      id: request.headers["x-pigeon-principal"] ?? "anonymous",
-      attributes: {}
-    },
-    region: request.headers["x-pigeon-region"] ?? "uk"
+    principal: broker.authenticate(request.headers["authorization"]),
+    region: request.headers["x-pigeon-region"] ?? "uk",
+    contractId: request.headers["x-pigeon-contract"] ?? null
   };
 }
 
 function statusFor(code) {
   return {
+    UNAUTHENTICATED: 401,
     POLICY_DENIED: 403,
     REPLAY_DENIED: 403,
     REGION_DENIED: 403,
     INTENT_DENIED: 403,
+    CONTRACT_REQUIRED: 403,
+    CONTRACT_NOT_FOUND: 403,
+    CONTRACT_EXPIRED: 403,
+    CONTRACT_PRINCIPAL_MISMATCH: 403,
+    SUBJECT_NOT_IN_CONTRACT: 403,
+    OPERATION_NOT_IN_CONTRACT: 403,
+    NO_PERMITTED_SUBJECTS: 403,
+    RATE_LIMITED: 429,
     SENSITIVE_FIELD_DENIED: 422,
     IDEMPOTENCY_REQUIRED: 422,
     CLASSIFICATION_DENIED: 422,
@@ -139,6 +171,7 @@ function statusFor(code) {
     SCHEMA_NOT_FOUND: 500,
     SUBJECT_NOT_FOUND: 404,
     MESSAGE_NOT_FOUND: 404,
+    QUARANTINE_NOT_FOUND: 404,
     BAD_REQUEST: 400,
     PAYLOAD_TOO_LARGE: 413,
     METHOD_NOT_ALLOWED: 405
@@ -177,10 +210,24 @@ async function readJson(request) {
   }
 }
 
+// When PIGEON_DATA_DIR is set, back the broker with a durable append-only store and
+// a durable, hash-chained audit log so state and evidence survive restarts (FND-03/05).
+export function createDemoBrokerForEnv() {
+  const dataDir = process.env.PIGEON_DATA_DIR;
+  if (!dataDir) {
+    return createDemoBroker(PigeonBroker);
+  }
+  const broker = new PigeonBroker({
+    store: new FileStore({ path: join(dataDir, "messages.log") }),
+    audit: new AuditLog({ path: join(dataDir, "audit.log") })
+  });
+  return registerDemoSubjects(broker);
+}
+
 // Start the server only when this file is run directly (not when imported by tests).
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const port = Number(process.env.PORT ?? 8787);
-  const server = createPigeonServer();
+  const server = createPigeonServer(createDemoBrokerForEnv());
   server.listen(port, () => {
     console.log(`Pigeon broker listening on http://localhost:${port}`);
   });
