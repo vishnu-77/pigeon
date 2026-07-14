@@ -43,9 +43,13 @@ export class Authenticator {
 }
 
 // Accepts either a raw token or an "Authorization: Bearer <token>" header value.
+// Parsed with plain string ops (no regex) so a hostile Authorization header cannot
+// trigger polynomial regex backtracking (ReDoS).
 function extractBearer(value) {
   if (!value || typeof value !== "string") return null;
   const trimmed = value.trim();
-  const match = /^Bearer\s+(.+)$/i.exec(trimmed);
-  return match ? match[1].trim() : trimmed;
+  if (trimmed.slice(0, 7).toLowerCase() === "bearer ") {
+    return trimmed.slice(7).trim() || null;
+  }
+  return trimmed || null;
 }
