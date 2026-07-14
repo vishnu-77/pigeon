@@ -1,4 +1,4 @@
-name: Release
+name: Release Pipeline
 
 # Fires ONLY when a SemVer tag (e.g. v0.2.0) is pushed. A normal push to main (or any
 # branch) does NOT trigger a release. Create tags with `npm version <patch|minor|major>`
