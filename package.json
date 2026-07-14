@@ -1,6 +1,6 @@
 {
-  "name": "pigeon",
-  "version": "1.0.0",
+  "name": "pigeonmq",
+  "version": "0.1.0",
   "description": "Policy-native messaging prototype: messages carry intent, subjects carry policy, brokers enforce guarantees.",
   "type": "module",
   "main": "src/index.js",

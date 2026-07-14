@@ -154,7 +154,7 @@ rules on every message.
 ### As a library (in-process, Node)
 
 ```js
-import { PigeonBroker } from "pigeon";
+import { PigeonBroker } from "pigeonmq";
 
 const broker = new PigeonBroker();
 
@@ -241,9 +241,11 @@ dashboard above is exactly this pattern from the browser.
 
 ### Installing today
 
-Pigeon is a pre-1.0 MVP and is not on npm yet. Use it by:
+Pigeon is published on npm as **`pigeonmq`** (the name `pigeon` was taken). Use it by:
 
 ```bash
+npm install pigeonmq                                 # from npm
+# or
 npm install github:vishnu-77/pigeon                 # add as a git dependency
 # or
 git clone https://github.com/vishnu-77/pigeon.git   # run the HTTP / Docker broker
