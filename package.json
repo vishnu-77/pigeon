@@ -30,6 +30,8 @@
   },
   "files": [
     "src",
+    "examples/dashboard.html",
+    "examples/docs.html",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",

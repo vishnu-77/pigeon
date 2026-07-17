@@ -384,6 +384,18 @@ export class PigeonBroker {
         throw new PigeonError("SENSITIVE_FIELD_DENIED", `${path} is forbidden on ${subject.name}.`);
       }
     }
+
+    // subject.data.tokenization = "required" is an enforced guarantee, not just
+    // documentation: a field named here must not carry a raw, un-tokenized card
+    // number. (subject.data.encryption is deliberately NOT enforced here - transport
+    // and at-rest encryption are properties of the deployment, not of a message's
+    // JSON content, and this layer cannot verify them.)
+    for (const path of subject.data?.tokenizedFields ?? []) {
+      const value = getPath(message.data, path);
+      if (typeof value === "string" && looksLikeRawCardNumber(value)) {
+        throw new PigeonError("RAW_PAN_DETECTED", `${path} on ${subject.name} looks like a raw, un-tokenized card number.`);
+      }
+    }
   }
 
   checkDuplicate(subject, message) {
@@ -423,12 +435,15 @@ export class PigeonBroker {
     const shouldQuarantine =
       subject.quarantine?.onSchemaViolation && code === "SCHEMA_INVALID" ||
       subject.quarantine?.onPolicyViolation &&
-        ["SENSITIVE_FIELD_DENIED", "CLASSIFICATION_DENIED", "REGION_DENIED", "INTENT_DENIED"].includes(code);
+        ["SENSITIVE_FIELD_DENIED", "CLASSIFICATION_DENIED", "REGION_DENIED", "INTENT_DENIED", "RAW_PAN_DETECTED"].includes(code);
 
     if (shouldQuarantine && message) {
+      // The record is kept as evidence, but it must not become a durable plaintext
+      // copy of the sensitive value that got the message denied in the first place.
+      const redactedPaths = [...(subject.data?.forbiddenFields ?? []), ...(subject.data?.tokenizedFields ?? [])];
       const stored = this.store.addQuarantine({
         subject: subject.name,
-        message,
+        message: redactMessage(message, redactedPaths),
         code,
         reason: error.message,
         principal: context.principal?.id,
@@ -512,4 +527,68 @@ function hasPath(value, path) {
     current = current[part];
   }
   return true;
+}
+
+function getPath(value, path) {
+  const parts = path.split(".");
+  let current = value;
+  for (const part of parts) {
+    if (!current || typeof current !== "object" || !(part in current)) {
+      return undefined;
+    }
+    current = current[part];
+  }
+  return current;
+}
+
+// True if `value` is a digit string of card-number length that passes the Luhn
+// checksum - i.e. it looks like a raw PAN rather than an opaque token. Tokens
+// issued by a real tokenization provider do not pass Luhn, so this only flags
+// the case tokenization is meant to prevent: a raw card number sent as-is.
+function looksLikeRawCardNumber(value) {
+  const digits = value.replace(/[ -]/g, "");
+  if (!/^\d{13,19}$/.test(digits)) {
+    return false;
+  }
+  let sum = 0;
+  let shouldDouble = false;
+  for (let i = digits.length - 1; i >= 0; i -= 1) {
+    let digit = digits.charCodeAt(i) - 48;
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+  return sum % 10 === 0;
+}
+
+// Deep-clones `message` and replaces the value at each dot-path in `paths` with a
+// redaction marker, so quarantine evidence never becomes a durable plaintext copy
+// of the sensitive value that caused the denial.
+function redactMessage(message, paths) {
+  if (paths.length === 0) {
+    return message;
+  }
+  const clone = structuredClone(message);
+  for (const path of paths) {
+    redactPath(clone.data, path);
+  }
+  return clone;
+}
+
+function redactPath(value, path) {
+  const parts = path.split(".");
+  let current = value;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    if (!current || typeof current !== "object") {
+      return;
+    }
+    current = current[parts[i]];
+  }
+  const lastKey = parts[parts.length - 1];
+  if (current && typeof current === "object" && lastKey in current) {
+    current[lastKey] = "[REDACTED]";
+  }
 }

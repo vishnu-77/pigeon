@@ -9,6 +9,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createHash } from "node:crypto";
+import { PigeonError } from "./errors.js";
 
 const GENESIS = "0".repeat(64);
 
@@ -68,15 +69,40 @@ export class AuditLog {
       return;
     }
     const contents = readFileSync(this.path, "utf8");
-    for (const line of contents.split("\n")) {
+    const lines = contents.split("\n");
+    while (lines.length > 0 && lines[lines.length - 1].trim() === "") {
+      lines.pop();
+    }
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
       if (!line.trim()) continue;
       try {
         const record = JSON.parse(line);
         this.records.push(record);
         this.lastHash = record.hash ?? this.lastHash;
-      } catch {
-        break; // torn trailing line from a crash
+      } catch (error) {
+        if (i === lines.length - 1) {
+          break; // torn trailing line from a crash
+        }
+        // A parse failure anywhere before the last line is real data loss, not a
+        // torn write - fail closed instead of silently truncating the trail.
+        throw new PigeonError(
+          "AUDIT_LOG_CORRUPT",
+          `${this.path} is corrupt at line ${i + 1}: ${error.message}`,
+          { path: this.path, line: i + 1 }
+        );
       }
+    }
+
+    // The hash chain is the tamper-evidence story - check it at the one moment that
+    // matters most: startup after a restart, rather than only if a caller thinks to.
+    if (!this.verify()) {
+      throw new PigeonError(
+        "AUDIT_LOG_TAMPERED",
+        `${this.path} failed hash-chain verification on replay: the audit trail may have been altered or truncated.`,
+        { path: this.path }
+      );
     }
   }
 }
