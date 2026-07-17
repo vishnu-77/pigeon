@@ -133,13 +133,28 @@ export class FileStore {
       return;
     }
     const contents = readFileSync(this.path, "utf8");
-    for (const line of contents.split("\n")) {
+    const lines = contents.split("\n");
+    while (lines.length > 0 && lines[lines.length - 1].trim() === "") {
+      lines.pop();
+    }
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
       if (!line.trim()) continue;
       try {
         this.#apply(JSON.parse(line));
-      } catch {
-        // Torn trailing line from a crash mid-write: stop replaying further.
-        break;
+      } catch (error) {
+        if (i === lines.length - 1) {
+          // Torn trailing line from a crash mid-write: stop replaying further.
+          break;
+        }
+        // A parse failure anywhere *before* the last line is real data loss, not a
+        // torn write - fail closed instead of silently dropping every record after it.
+        throw new PigeonError(
+          "STORE_CORRUPT",
+          `${this.path} is corrupt at line ${i + 1}: ${error.message}`,
+          { path: this.path, line: i + 1 }
+        );
       }
     }
   }
