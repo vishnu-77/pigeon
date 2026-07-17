@@ -1,6 +1,6 @@
 {
   "name": "pigeonmq",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Policy-compiled messaging broker for governed async communication: subject policies compile into runtime session contracts enforced on every message.",
   "type": "module",
   "main": "src/index.js",
