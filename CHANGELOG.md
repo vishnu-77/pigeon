@@ -32,6 +32,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HTTP API adds `/v1/contracts` and quarantine release; publish/receive now require a
   contract. The `x-pigeon-principal` header is no longer trusted.
 
+### Fixed
+- The published npm package was missing `examples/`, so `pigeon broker start` (and
+  `npm start` against an installed copy) crashed with `ENOENT` looking for the
+  dashboard/docs HTML. `examples/dashboard.html` and `examples/docs.html` are now
+  included in `files`. (#22)
+- `subject.data.tokenization = "required"` is now actually enforced: a value in a
+  `tokenizedFields` path that looks like a raw, un-tokenized card number (Luhn-valid,
+  13-19 digits) is rejected with `RAW_PAN_DETECTED` and quarantined. `encryption` is
+  documented as descriptive rather than enforced, since transport/at-rest encryption
+  isn't something this layer can verify from message content. (#23)
+- Quarantine records no longer retain the raw value of a forbidden or tokenized field
+  (e.g. a full card PAN) in plaintext; it is redacted before the record is stored as
+  evidence. (#24)
+- `FileStore` and `AuditLog` replay now only tolerates a parse failure on the final
+  line of the log (a genuine torn write); a parse failure earlier in the file throws
+  instead of silently discarding every record after it. `AuditLog` also verifies its
+  hash chain on replay and fails closed if it doesn't check out. (#25)
+
 ## [0.1.0] - 2026-07-12
 
 Initial MVP release: a dependency-free, single-node prototype of policy-native

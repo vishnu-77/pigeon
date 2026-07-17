@@ -50,8 +50,14 @@ export const paymentsAuthorizeSubject = {
   },
   data: {
     classification: "pci",
+    // Descriptive: encryption-in-transit/at-rest is a property of the deployment
+    // (TLS, disk/KMS config), not of a message's JSON content, so it is not
+    // something this layer can verify.
     encryption: "required",
+    // Enforced: broker.enforceSubjectPolicy rejects a value here that looks like a
+    // raw, un-tokenized card number (RAW_PAN_DETECTED).
     tokenization: "required",
+    tokenizedFields: ["paymentToken"],
     forbiddenFields: ["card.pan"]
   },
   quarantine: {

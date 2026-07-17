@@ -189,6 +189,26 @@ test("denies messages containing forbidden sensitive fields and quarantines them
   const quarantine = broker.listQuarantine();
   assert.equal(quarantine.length, 1);
   assert.equal(quarantine[0].code, "SENSITIVE_FIELD_DENIED");
+  // The quarantine record must not become a durable plaintext copy of the PAN.
+  assert.equal(quarantine[0].message.data.card.pan, "[REDACTED]");
+});
+
+test("denies a raw, un-tokenized card number in a tokenized field and quarantines it redacted", () => {
+  const { broker, session } = checkoutSession();
+  assert.throws(
+    () => session.request("payments.authorize", payment({ paymentToken: "4111111111111111" }), requestOptions()),
+    (error) => error instanceof PigeonError && error.code === "RAW_PAN_DETECTED"
+  );
+  const quarantine = broker.listQuarantine();
+  assert.equal(quarantine.length, 1);
+  assert.equal(quarantine[0].code, "RAW_PAN_DETECTED");
+  assert.equal(quarantine[0].message.data.paymentToken, "[REDACTED]");
+});
+
+test("accepts an opaque payment token that is not a raw card number", () => {
+  const { session } = checkoutSession();
+  const result = session.request("payments.authorize", payment({ paymentToken: "tok_visa_abc" }), requestOptions());
+  assert.equal(result.status, "accepted");
 });
 
 test("denies messages from disallowed regions with REGION_DENIED", () => {
