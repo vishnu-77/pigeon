@@ -7,6 +7,7 @@ import { PolicyEngine } from "./policy.js";
 import { RateLimiter } from "./ratelimit.js";
 import { SchemaRegistry } from "./schema.js";
 import { MemoryStore } from "./store.js";
+import { noopObservability } from "./observability.js";
 
 const REQUIRED_ENVELOPE_FIELDS = ["subject", "type", "source", "intent"];
 const OPERATIONS = ["publish", "receive", "ack", "replay"];
@@ -19,7 +20,8 @@ export class PigeonBroker {
     policy = new PolicyEngine(),
     rateLimiter = new RateLimiter(),
     schemas = new SchemaRegistry(),
-    store = new MemoryStore()
+    store = new MemoryStore(),
+    observability = noopObservability
   } = {}) {
     this.audit = audit;
     this.auth = auth;
@@ -28,6 +30,7 @@ export class PigeonBroker {
     this.rateLimiter = rateLimiter;
     this.schemas = schemas;
     this.store = store;
+    this.observability = observability;
     this.subjects = new Map();
     this.subjectsById = new Map();
     this.subjectCounter = 0;
@@ -124,6 +127,11 @@ export class PigeonBroker {
   }
 
   publish(input, context) {
+    const span = this.observability.startSpan("pigeon.publish", {
+      "pigeon.operation": "publish",
+      "pigeon.subject": input?.subject
+    });
+
     validateEnvelope(input);
     const subject = this.getSubject(input.subject);
     const { subject: contractSubject } = this.contracts.validate(
@@ -161,6 +169,11 @@ export class PigeonBroker {
           idempotencyKey: message.idempotencyKey,
           ...decisionMeta
         });
+        span.setAttribute("pigeon.outcome", "duplicate");
+        this.observability.recordDecision("publish", "duplicate", {
+          "pigeon.subject": subject.name
+      });
+      span.end();
         return { status: "duplicate", message: duplicate };
       }
 
@@ -187,9 +200,21 @@ export class PigeonBroker {
 
       // Deliver a queued reply back to a waiting requester, if any (FND-09).
       this.routeReply(subject, committed);
+      span.setAttribute("pigeon.outcome", "accepted");
+      this.observability.recordDecision("publish", "accepted", {
+      "pigeon.subject": subject.name
+    });
+      span.end();
 
       return { status: "accepted", message: committed };
     } catch (error) {
+      span.setAttribute("pigeon.outcome", "denied");
+      this.observability.recordDecision("publish", "denied", {
+      "pigeon.subject": subject?.name
+    });
+      span.recordException(error);
+      span.end();
+
       this.handlePublishFailure(subject, message, context, error, decisionMeta);
       throw error;
     }
