@@ -1,6 +1,13 @@
 # Dependencies
 node_modules/
 
+# Next.js build output (web/, demo/)
+.next/
+next-env.d.ts
+
+# Vercel deployment metadata (demo/)
+.vercel
+
 # Logs
 *.log
 npm-debug.log*
