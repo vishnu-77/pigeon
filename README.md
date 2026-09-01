@@ -9,37 +9,21 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](.nvmrc)
 
-Pigeon is a **policy-compiled messaging broker for governed asynchronous communication**.
+## Overview
 
-It introduces **runtime communication contracts**: subject policies are compiled into
-lightweight session contracts, and every message is checked against that contract before
-routing, delivery, replay, quarantine, or audit.
-
-> Kafka stores the log. NATS routes the subject. RabbitMQ manages the queue.
-> **Pigeon governs the communication contract.**
+Pigeon is a policy-compiled messaging broker for governed asynchronous communication. It
+introduces **runtime communication contracts**: subject policies are compiled into
+lightweight session contracts at connect time, and every message is checked against that
+contract before routing, delivery, replay, quarantine, or audit. A subject policy declares
+who may send a message, who may receive it, which schema applies, whether idempotency and
+replay are allowed, whether audit is required, and whether the message is allowed, denied,
+or quarantined.
 
 > **Status:** early-stage and experimental. The broker model and the policy-compiled
 > messaging path work and are tested, but this is not production-ready (see
-> [Current status](#current-status)).
+> [Status](#status)).
 
-## Why Pigeon?
-
-Most brokers focus on delivery: topics, queues, streams, and routing. Governance -
-*who may send this? is this a retry or a real second charge? who received it?* - gets
-bolted on later as sidecars, client libraries, and tribal knowledge. It drifts, and
-nobody can prove what was enforced.
-
-Pigeon focuses on the **communication contract** around the message:
-
-- who is allowed to send it
-- who can receive it
-- which schema applies
-- whether idempotency is required
-- whether replay is allowed
-- whether audit is required
-- whether the message should be allowed, denied, or quarantined
-
-## Core idea
+## Architecture
 
 ```text
 Subject Policy
@@ -53,10 +37,10 @@ Broker Decision
 Allow / Deny / Quarantine / Audit
 ```
 
-A client authenticates and **negotiates a contract** for the subjects it needs; the broker
+A client authenticates and negotiates a contract for the subjects it needs; the broker
 compiles the relevant policy into that contract (subject, schema, and policy IDs, granted
 operations, expiry). Every publish, receive, replay, and ack is validated against the
-contract - identity, operation, schema, region, classification, idempotency - **before** the
+contract - identity, operation, schema, region, classification, idempotency - before the
 message is routed, stored, or delivered. Denied messages are audited and, where configured,
 quarantined as evidence. Because policy is compiled once per session, enforcement is a fast
 table lookup, not a re-parse per message.
@@ -114,7 +98,7 @@ npm start         # HTTP broker + live dashboard on http://localhost:8787
 `npm start` also serves a live **Acme Checkout dashboard** at `/` (watch messages flow and
 the audit trail stream live) and a versioned **API reference with "Try it"** at `/docs`.
 
-### Send a message
+## Usage
 
 In-process (Node):
 
@@ -176,59 +160,21 @@ Lint a policy directory with `pigeon policy lint policies`. See
 [ADR-0003](docs/adr/0003-json-policy-language-over-cedar-rego.md) for why policy is
 structured data rather than a rule language.
 
-## What makes it different?
-
-| System | Core primitive | Strength | Pigeon difference |
-| --- | --- | --- | --- |
-| Kafka | Topic partition log | Durable streaming and replay | Pigeon governs runtime communication contracts |
-| NATS | Subject | Low-latency messaging and request/reply | Pigeon turns subjects into policy-backed contracts |
-| RabbitMQ | Exchange and queue | Routing, ACK/NACK, work queues | Pigeon governs whether the flow is allowed before routing |
-| **Pigeon** | **Session contract over subject policy** | **Governed async communication** | **Policy-compiled runtime enforcement** |
-
-## Current status
+## Status
 
 Pigeon is **early-stage and experimental**. The runtime, the policy-compiled contract path,
 and the single-node broker all work and are tested (62 tests, CI on Node 22 & 24, CodeQL +
 secret scanning). It is **not production-ready**: authentication uses static demo bearer
 tokens (real deployments need mTLS/SPIFFE/JWT), and session contracts are in-memory and
-single-node.
-
-Implemented today:
-
-- [x] Broker runtime (publish / receive / replay / ack)
-- [x] Subject-based messaging
-- [x] Policy loading (JSON files + linter)
-- [x] Policy compilation (subject/policy/schema IDs, permission index)
-- [x] Session contract negotiation
-- [x] Runtime contract enforcement
-- [x] Schema validation
-- [x] Idempotency checks (TTL dedupe window)
-- [x] Audit events (hash-chained, optionally durable)
-- [x] Quarantine (with authorized release)
-- [x] Rate limiting
-- [x] Durable store (append-only, via `PIGEON_DATA_DIR`)
-- [x] CLI (`broker start`, `policy lint`, `publish`, `quarantine`)
-- [x] Docker (three-container simulation)
-- [x] SDK (TypeScript)
-
-Not yet: authenticated identity at the edge (mTLS/SPIFFE/JWT), distributed/persisted
-contracts, streaming consumers and queue leases. See [docs/backlog.md](docs/backlog.md) and
-the [roadmap](docs/vision.md#roadmap).
-
-## What Pigeon is not
-
-Pigeon is not trying to replace Kafka, NATS, or RabbitMQ on day one, and it is not a
-workflow engine, an API gateway, or a generic message queue. It is exploring a different
-primitive:
-
-> **policy-compiled messaging** - runtime session contracts over subject policy.
+single-node. See [docs/progress.md](docs/progress.md) for the full shipped / in-flight /
+next-up breakdown.
 
 ## Documentation
 
 - **Architecture:** [docs/mvp-architecture.md](docs/mvp-architecture.md) · flows: [docs/flows.md](docs/flows.md)
 - **Session contracts:** [ADR-0006](docs/adr/0006-session-contracts.md) · all decisions: [docs/adr/](docs/adr/)
 - **Policy & use cases:** [docs/use-cases.md](docs/use-cases.md) · example policies: [`policies/`](policies/)
-- **Vision & roadmap:** [docs/vision.md](docs/vision.md) · status: [docs/progress.md](docs/progress.md) · backlog: [docs/backlog.md](docs/backlog.md)
+- **Status:** [docs/progress.md](docs/progress.md)
 - **Containers:** [docs/local-container-simulation.md](docs/local-container-simulation.md) · **SDK:** [sdk/typescript/](sdk/typescript/README.md)
 - **Security:** [SECURITY.md](SECURITY.md)
 

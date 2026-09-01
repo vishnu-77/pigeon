@@ -1,18 +1,14 @@
 # Pigeon Progress
 
 > A living snapshot of where the project stands: what ships today, what is in flight, and
-> what is next. For the *release history* see [CHANGELOG.md](../CHANGELOG.md); for the
-> *long-term plan* see the [Roadmap](vision.md#roadmap) in the vision doc. This file is
-> the bridge between the two - update it when a milestone lands or the near-term focus
-> shifts.
+> what is next. For the *release history* see [CHANGELOG.md](../CHANGELOG.md). Update
+> this file when a milestone lands or the near-term focus shifts.
 
 - **Current version:** `0.1.0` (see [CHANGELOG.md](../CHANGELOG.md))
 - **Phase:** 0 - Formal model (this repo), now with policy-compiled session contracts
 - **Last updated:** 2026-07-14
 
 ## Roadmap status
-
-Phases are defined in [vision.md](vision.md#roadmap). This table tracks their state.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -51,11 +47,11 @@ Phases are defined in [vision.md](vision.md#roadmap). This table tracks their st
 
 ## In flight
 
-- Nothing active - the [state-audit backlog](backlog.md) (FND-01..15) is complete.
+- Nothing active - the FND-01..15 state-audit backlog is complete.
 
 ## Next up
 
-Beyond the MVP boundary, into Phase 1 (see the [Roadmap](vision.md#roadmap)):
+Beyond the MVP boundary, into Phase 1:
 
 - Authenticated identity at the edge (mTLS/SPIFFE/JWT) to replace the demo bearer tokens.
 - Durable, distributable session contracts (currently in-memory).

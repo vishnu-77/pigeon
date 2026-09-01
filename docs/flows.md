@@ -124,11 +124,9 @@ flowchart TD
 
 - [../README.md](../README.md) - product overview, quickstart, HTTP API.
 - [mvp-architecture.md](mvp-architecture.md) - tagged transmit path and component view.
-- [vision.md](vision.md) - the north-star design, positioning, and roadmap.
 - [use-cases.md](use-cases.md) - where and how to apply Pigeon, with subject sketches.
 - [local-container-simulation.md](local-container-simulation.md) - the networked sender/broker/receiver demo.
 - [progress.md](progress.md) - living status: what ships today, in flight, and next up.
-- [backlog.md](backlog.md) - ranked, actionable work from the state audit (P0-P3).
 - [adr/](adr/) - architecture decision records: the *why* behind the tradeoffs.
 
 These diagrams render directly on GitHub (Mermaid), so they double as talk/demo

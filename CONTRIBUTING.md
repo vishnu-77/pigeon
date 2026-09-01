@@ -85,8 +85,7 @@ add a row to the [ADR index](docs/adr/README.md).
 
 [docs/progress.md](docs/progress.md) is the living snapshot of what ships today, what is in
 flight, and what is next. When you land a milestone or shift the near-term focus, update it
-in the same PR. It links to [CHANGELOG.md](CHANGELOG.md) (history) and the
-[Roadmap](docs/vision.md#roadmap) (the plan) rather than duplicating them.
+in the same PR. It links to [CHANGELOG.md](CHANGELOG.md) (history) rather than duplicating it.
 
 ## Releasing
 

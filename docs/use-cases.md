@@ -155,5 +155,5 @@ policy:
    broker for everything else.
 3. **Prove the guarantees.** Use `GET /v1/audit` and `GET /v1/quarantine` to show
    auditors and teammates what the broker enforced.
-4. **Expand.** Add subjects as the model earns trust. Bridges to Kafka/NATS are on the
-   [roadmap](vision.md#roadmap) so you never need a big-bang migration.
+4. **Expand.** Add subjects as the model earns trust. Bridges to Kafka/NATS are planned
+   so you never need a big-bang migration.
