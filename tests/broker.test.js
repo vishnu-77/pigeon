@@ -41,6 +41,29 @@ function checkoutSession() {
   return { broker, session: broker.connect(checkout, { subjects: ["payments.authorize"] }) };
 }
 
+// Helper to assert observability spans and metrics are tracked correctly
+function createMockObservability() {
+  const log = { spans: [], decisions: [] };
+  return {
+    log,
+    startSpan: (name, attributes) => {
+      const span = {
+        name,
+        attributes: { ...attributes },
+        exceptions: [],
+        ended: false,
+        setAttribute(k, v) { this.attributes[k] = v; },
+        recordException(err) { this.exceptions.push(err); },
+        end() { this.ended = true; log.spans.push(this); }
+      };
+      return span;
+    },
+    recordDecision: (operation, outcome, attributes) => {
+      log.decisions.push({ operation, outcome, attributes });
+    }
+  };
+}
+
 test("accepts a governed payment authorization", () => {
   const { session } = checkoutSession();
   const result = session.request("payments.authorize", payment(), requestOptions());
@@ -374,4 +397,75 @@ test("forbids raw SSN on the notifications subject", () => {
     () => orders.request("notifications.send", notification({ recipient: { ssn: "078-05-1120" } }), notifyOptions({ idempotencyKey: "leak:1" })),
     (error) => error instanceof PigeonError && error.code === "SENSITIVE_FIELD_DENIED"
   );
+});
+
+test("observability: records span and accepted decision for successful publish", () => {
+  const obs = createMockObservability();
+  class ObservableBroker extends PigeonBroker {
+    constructor(opts) { super({ ...opts, observability: obs }); }
+  }
+  const broker = createPaymentBroker(ObservableBroker);
+  const session = broker.connect(checkout, { subjects: ["payments.authorize"] });
+
+  session.request("payments.authorize", payment(), requestOptions());
+
+  assert.equal(obs.log.spans.length, 1);
+  assert.equal(obs.log.spans[0].name, "pigeon.publish");
+  assert.equal(obs.log.spans[0].ended, true);
+  assert.equal(obs.log.spans[0].attributes["pigeon.outcome"], "accepted");
+
+  assert.equal(obs.log.decisions.length, 1);
+  assert.equal(obs.log.decisions[0].operation, "publish");
+  assert.equal(obs.log.decisions[0].outcome, "accepted");
+});
+
+test("observability: fixes span leak by ending span and recording denied on envelope validation failure", () => {
+  const obs = createMockObservability();
+  class ObservableBroker extends PigeonBroker {
+    constructor(opts) { super({ ...opts, observability: obs }); }
+  }
+  const broker = createPaymentBroker(ObservableBroker);
+  const session = broker.connect(checkout, { subjects: ["payments.authorize"] });
+
+  assert.throws(() => {
+    // Missing required fields to trigger validateEnvelope failure early in the block
+    session.publish({ subject: "payments.authorize" });
+  }, PigeonError);
+
+  assert.equal(obs.log.spans.length, 1);
+  assert.equal(obs.log.spans[0].ended, true, "Span must be ended even on validation error");
+  assert.equal(obs.log.spans[0].attributes["pigeon.outcome"], "denied");
+  assert.equal(obs.log.spans[0].exceptions.length, 1);
+
+  assert.equal(obs.log.decisions.length, 1);
+  assert.equal(obs.log.decisions[0].operation, "publish");
+  assert.equal(obs.log.decisions[0].outcome, "denied");
+});
+
+test("observability: records spans and decisions for receive and replay operations", () => {
+  const obs = createMockObservability();
+  class ObservableBroker extends PigeonBroker {
+    constructor(opts) { super({ ...opts, observability: obs }); }
+  }
+  const broker = createDemoBroker(ObservableBroker);
+  const orders = broker.connect(ordersApi, { subjects: ["notifications.send"] });
+
+  orders.request("notifications.send", notification(), notifyOptions());
+
+  const notifier = broker.connect({ principal: { id: "spiffe://merchant-prod/ns/notify/sa/notifier-worker" }, region: "uk" }, { subjects: ["notifications.send"] });
+  notifier.receive("notifications.send", { max: 1 });
+
+  const replayer = broker.connect(notifyReplay, { subjects: ["notifications.send"] });
+  replayer.replay("notifications.send", { reason: "test replay" });
+
+  const receiveDecision = obs.log.decisions.find(d => d.operation === "receive");
+  assert.ok(receiveDecision);
+  assert.equal(receiveDecision.outcome, "accepted");
+
+  const replayDecision = obs.log.decisions.find(d => d.operation === "replay");
+  assert.ok(replayDecision);
+  assert.equal(replayDecision.outcome, "accepted");
+
+  assert.ok(obs.log.spans.find(s => s.name === "pigeon.receive" && s.ended));
+  assert.ok(obs.log.spans.find(s => s.name === "pigeon.replay" && s.ended));
 });
