@@ -4,16 +4,16 @@
 > what is next. For the *release history* see [CHANGELOG.md](../CHANGELOG.md). Update
 > this file when a milestone lands or the near-term focus shifts.
 
-- **Current version:** `0.1.0` (see [CHANGELOG.md](../CHANGELOG.md))
-- **Phase:** 0 - Formal model (this repo), now with policy-compiled session contracts
-- **Last updated:** 2026-07-14
+- **Current version:** `1.0.2` (see [CHANGELOG.md](../CHANGELOG.md))
+- **Phase:** 1 - Single-node broker (durable storage shipped; streaming consumers pending)
+- **Last updated:** 2026-09-10
 
 ## Roadmap status
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 0 - Formal model | Subject/envelope spec, policy decisions, retry/idempotency/replay, in-memory broker + HTTP API + audit + quarantine | In progress (MVP shipped) |
-| 1 - Single-node broker | Durable storage, gRPC + CloudEvents HTTP, streaming consumers | Not started |
+| 0 - Formal model | Subject/envelope spec, policy decisions, retry/idempotency/replay, in-memory broker + HTTP API + audit + quarantine | Done |
+| 1 - Single-node broker | Durable storage, gRPC + CloudEvents HTTP, streaming consumers | In progress (durable storage + hash-chained audit log shipped) |
 | 2 - K8s control plane | CRDs reconciled into broker runtime config | Not started |
 | 3 - Distributed broker | Partitioned subjects, replicated logs, Raft metadata | Not started |
 | 4 - Compatibility bridges | Kafka / NATS / RabbitMQ / SQS-SNS source & sink | Not started |

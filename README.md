@@ -19,9 +19,9 @@ who may send a message, who may receive it, which schema applies, whether idempo
 replay are allowed, whether audit is required, and whether the message is allowed, denied,
 or quarantined.
 
-> **Status:** early-stage and experimental. The broker model and the policy-compiled
-> messaging path work and are tested, but this is not production-ready (see
-> [Status](#status)).
+> **Status:** v1.0.2. The broker, policy-compiled contract path, durable storage, and
+> hash-chained audit log are shipped and tested; not yet distributed/multi-node or
+> mTLS/SPIFFE-backed identity (see [Status](#status)).
 
 ## Architecture
 
@@ -77,7 +77,7 @@ Requires **Node.js ≥ 22**. Zero runtime dependencies.
 npm install pigeonmq                                  # use as a library
 # or run the repo directly:
 git clone https://github.com/vishnu-77/pigeon.git && cd pigeon
-npm test          # 62 tests across broker, contracts, store, HTTP, SDK
+npm test          # 72 tests across broker, contracts, store, HTTP, SDK
 npm run demo      # narrated sender → broker → receiver walkthrough
 npm start         # HTTP broker + live dashboard on http://localhost:8787
 ```
@@ -162,12 +162,12 @@ structured data rather than a rule language.
 
 ## Status
 
-Pigeon is **early-stage and experimental**. The runtime, the policy-compiled contract path,
-and the single-node broker all work and are tested (62 tests, CI on Node 22 & 24, CodeQL +
-secret scanning). It is **not production-ready**: authentication uses static demo bearer
-tokens (real deployments need mTLS/SPIFFE/JWT), and session contracts are in-memory and
-single-node. See [docs/progress.md](docs/progress.md) for the full shipped / in-flight /
-next-up breakdown.
+Pigeon is at **v1.0.2**. The broker, policy-compiled session contracts, durable
+crash-recoverable storage, and a hash-chained audit log (verified on replay, fails closed on
+corruption) are shipped and tested (72 tests, CI on Node 22 & 24, CodeQL + secret scanning).
+Not yet covered: distributed/multi-node operation (storage and session contracts are
+single-node) and enterprise identity (auth is bearer-token-based, not mTLS/SPIFFE/JWT). See
+[docs/progress.md](docs/progress.md) for the full shipped / in-flight / next-up breakdown.
 
 ## Documentation
 
