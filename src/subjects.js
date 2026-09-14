@@ -30,24 +30,11 @@ export const paymentsAuthorizeSubject = {
     crossRegion: "deny"
   },
   delivery: {
-    retry: {
-      maxAttempts: 3,
-      backoff: "exponential",
-      maxDelayMs: 30_000
-    },
-    idempotency: {
-      required: true,
-      key: "idempotencyKey",
-      ttlMs: 172_800_000
-    }
+    retry: { maxAttempts: 3, backoff: "exponential", maxDelayMs: 30_000 },
+    idempotency: { required: true, key: "idempotencyKey", ttlMs: 172_800_000 }
   },
-  replay: {
-    allowed: false
-  },
-  retention: {
-    messagesMs: 604_800_000,
-    auditMs: 220_752_000_000
-  },
+  replay: { allowed: false },
+  retention: { messagesMs: 604_800_000, auditMs: 220_752_000_000 },
   data: {
     classification: "pci",
     encryption: "required",
@@ -55,11 +42,7 @@ export const paymentsAuthorizeSubject = {
     tokenizedFields: ["paymentToken"],
     forbiddenFields: ["card.pan"]
   },
-  quarantine: {
-    onSchemaViolation: true,
-    onPolicyViolation: true,
-    onHandlerFailure: true
-  },
+  quarantine: { onSchemaViolation: true, onPolicyViolation: true, onHandlerFailure: true },
   policy: {
     publish: [
       {
@@ -98,9 +81,7 @@ export const notificationSendSchema = {
     params: { type: "object" },
     recipient: {
       type: "object",
-      properties: {
-        ssn: { type: "string" }
-      }
+      properties: { ssn: { type: "string" } }
     }
   }
 };
@@ -109,44 +90,20 @@ export const notificationsSendSubject = {
   name: "notifications.send",
   mode: "workQueue",
   intents: ["send_notification"],
-  schema: {
-    name: "notification.send.v1",
-    compatibility: "backward"
-  },
-  regionPolicy: {
-    home: "uk",
-    allowedRegions: ["uk", "eu"],
-    crossRegion: "deny"
-  },
+  schema: { name: "notification.send.v1", compatibility: "backward" },
+  regionPolicy: { home: "uk", allowedRegions: ["uk", "eu"], crossRegion: "deny" },
   delivery: {
-    retry: {
-      maxAttempts: 5,
-      backoff: "exponential",
-      maxDelayMs: 60_000
-    },
-    idempotency: {
-      required: true,
-      key: "idempotencyKey",
-      ttlMs: 86_400_000
-    }
+    retry: { maxAttempts: 5, backoff: "exponential", maxDelayMs: 60_000 },
+    idempotency: { required: true, key: "idempotencyKey", ttlMs: 86_400_000 }
   },
-  replay: {
-    allowed: true
-  },
-  retention: {
-    messagesMs: 259_200_000,
-    auditMs: 220_752_000_000
-  },
+  replay: { allowed: true },
+  retention: { messagesMs: 259_200_000, auditMs: 220_752_000_000 },
   data: {
     classification: "pii",
     encryption: "required",
     forbiddenFields: ["recipient.ssn"]
   },
-  quarantine: {
-    onSchemaViolation: true,
-    onPolicyViolation: true,
-    onHandlerFailure: true
-  },
+  quarantine: { onSchemaViolation: true, onPolicyViolation: true, onHandlerFailure: true },
   policy: {
     publish: [
       {
@@ -189,9 +146,7 @@ export const demoMessageSchema = {
     message: { type: "string" },
     restricted: {
       type: "object",
-      properties: {
-        secret: { type: "string" }
-      }
+      properties: { secret: { type: "string" } }
     }
   }
 };
@@ -200,44 +155,20 @@ export const demoMessageSubject = {
   name: "demo.message",
   mode: "workQueue",
   intents: ["send_demo_message"],
-  schema: {
-    name: "demo.message.v1",
-    compatibility: "backward"
-  },
-  regionPolicy: {
-    home: "uk",
-    allowedRegions: ["uk", "eu"],
-    crossRegion: "deny"
-  },
+  schema: { name: "demo.message.v1", compatibility: "backward" },
+  regionPolicy: { home: "uk", allowedRegions: ["uk", "eu"], crossRegion: "deny" },
   delivery: {
-    retry: {
-      maxAttempts: 2,
-      backoff: "linear",
-      maxDelayMs: 2_000
-    },
-    idempotency: {
-      required: true,
-      key: "idempotencyKey",
-      ttlMs: 3_600_000
-    }
+    retry: { maxAttempts: 2, backoff: "linear", maxDelayMs: 2_000 },
+    idempotency: { required: true, key: "idempotencyKey", ttlMs: 3_600_000 }
   },
-  replay: {
-    allowed: false
-  },
-  retention: {
-    messagesMs: 3_600_000,
-    auditMs: 86_400_000
-  },
+  replay: { allowed: false },
+  retention: { messagesMs: 3_600_000, auditMs: 86_400_000 },
   data: {
     classification: "internal",
     encryption: "required",
     forbiddenFields: ["restricted.secret"]
   },
-  quarantine: {
-    onSchemaViolation: true,
-    onPolicyViolation: true,
-    onHandlerFailure: true
-  },
+  quarantine: { onSchemaViolation: true, onPolicyViolation: true, onHandlerFailure: true },
   policy: {
     publish: [
       {
@@ -294,6 +225,13 @@ export function registerDemoAuth(broker) {
   return broker;
 }
 
+export function registerPublicDemoSubject(broker) {
+  broker.registerSchema("demo.message.v1", demoMessageSchema);
+  broker.registerSubject(demoMessageSubject);
+  registerDemoAuth(broker);
+  return broker;
+}
+
 export function createPaymentBroker(BrokerClass) {
   const broker = new BrokerClass();
   broker.registerSchema("payment.authorization.v1", paymentAuthorizationSchema);
@@ -307,8 +245,6 @@ export function registerDemoSubjects(broker) {
   broker.registerSubject(paymentsAuthorizeSubject);
   broker.registerSchema("notification.send.v1", notificationSendSchema);
   broker.registerSubject(notificationsSendSubject);
-  broker.registerSchema("demo.message.v1", demoMessageSchema);
-  broker.registerSubject(demoMessageSubject);
   registerDemoAuth(broker);
   return broker;
 }
