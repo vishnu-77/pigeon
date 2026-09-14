@@ -4,7 +4,7 @@ import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AuditLog, FileStore, PigeonBroker, PigeonError } from "../src/index.js";
-import { paymentAuthorizationSchema, paymentsAuthorizeSubject } from "../src/subjects.js";
+import { paymentAuthorizationSchema, paymentsAuthorizeSubject, registerDemoSubjects, DEMO_PRINCIPALS } from "../src/subjects.js";
 
 function tempDir() {
   return mkdtempSync(join(tmpdir(), "pigeon-"));
@@ -75,6 +75,31 @@ test("AuditLog persists records and verifies its hash chain after restart", () =
     // Tampering breaks the chain.
     recovered.records[0].decision = "deny";
     assert.equal(recovered.verify(), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("delivery and idempotent acknowledgement survive broker restarts", () => {
+  const dir = tempDir();
+  const path = join(dir, "broker.log");
+  const create = () => registerDemoSubjects(new PigeonBroker({ store: new FileStore({ path }) }));
+  const context = { principal: DEMO_PRINCIPALS.gateway, region: "uk" };
+  try {
+    const first = create();
+    const sender = first.connect({ principal: DEMO_PRINCIPALS.checkout, region: "uk" });
+    const { message } = sender.request("payments.authorize",
+      { merchantId: "m", orderId: "o", amount: 1, currency: "GBP", paymentToken: "t" },
+      { intent: "authorize_payment", idempotencyKey: "restart:ack", classification: "pci", region: "uk" });
+    first.connect(context).receive("payments.authorize");
+    const second = create();
+    const gateway = second.connect(context);
+    assert.equal(gateway.ack("payments.authorize", message.id).deliveries.length, 1);
+    const third = create();
+    const recovered = third.connect(context);
+    assert.equal(recovered.ack("payments.authorize", message.id).ackedBy.length, 1);
+    assert.deepEqual(recovered.receive("payments.authorize"), []);
+    assert.equal(third.listAudit().filter((r) => r.type === "delivery.acked").length, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

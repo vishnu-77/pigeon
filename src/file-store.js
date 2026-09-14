@@ -58,6 +58,18 @@ export class FileStore {
     return this.cursors.get(key) ?? 0;
   }
 
+  recordDelivery(subject, id, delivery) {
+    const event = { op: "recordDelivery", subject, id, delivery };
+    this.#write(event);
+    this.#apply(event);
+  }
+
+  recordAck(subject, id, acknowledgement) {
+    const event = { op: "recordAck", subject, id, acknowledgement };
+    this.#write(event);
+    this.#apply(event);
+  }
+
   setCursor(key, position) {
     this.cursors.set(key, position);
     this.#write({ op: "setCursor", key, position });
@@ -117,6 +129,18 @@ export class FileStore {
       case "setCursor":
         this.cursors.set(event.key, event.position);
         break;
+      case "recordDelivery": {
+        const message = this.findMessage(event.subject, event.id);
+        message.deliveries ??= [];
+        message.deliveries.push(event.delivery);
+        break;
+      }
+      case "recordAck": {
+        const message = this.findMessage(event.subject, event.id);
+        message.ackedBy ??= [];
+        message.ackedBy.push(event.acknowledgement);
+        break;
+      }
       case "setIdempotent":
         this.idempotency.set(`${event.subject}:${event.key}`, { message: event.message, at: event.at });
         break;

@@ -229,6 +229,9 @@ export class PigeonBroker {
   }
 
   receive(subjectName, context, { max = 1 } = {}) {
+    if (!Number.isSafeInteger(max) || max < 1 || max > 1000) {
+      throw new PigeonError("BAD_REQUEST", "Receive max must be an integer between 1 and 1000.");
+    }
     const span = this.observability.startSpan("pigeon.receive", {
       "pigeon.operation": "receive",
       "pigeon.subject": subjectName
@@ -248,7 +251,7 @@ export class PigeonBroker {
         .slice(0, max);
 
       for (const message of available) {
-        message.deliveries.push({
+        this.store.recordDelivery(subjectName, message.id, {
           principal: context.principal.id,
           time: new Date().toISOString(),
           attempt: message.deliveries.length + 1
@@ -261,8 +264,8 @@ export class PigeonBroker {
         });
       }
 
-      // Advance the cursor past the highest dispatched message so at-least-once
-      // delivery does not silently skip work-queue entries that were held back.
+      // Advance past the highest dispatched message. This cursor-based MVP does
+      // not lease messages or automatically redeliver unacknowledged work.
       if (available.length > 0) {
         const lastSequence = available[available.length - 1].sequence;
         const log = this.store.listMessages(subjectName);
@@ -369,8 +372,11 @@ export class PigeonBroker {
     this.contracts.validate(context.contractId, context.principal.id, subject.name, "ack");
     this.policy.assertAllowed("ack", subject, { ...context, region: context.region ?? subject.regionPolicy?.home });
     const message = this.findMessage(subjectName, messageId);
-    message.ackedBy ??= [];
-    message.ackedBy.push({ principal: context.principal.id, time: new Date().toISOString() });
+    if (!message.deliveries.some((delivery) => delivery.principal === context.principal.id)) {
+      throw new PigeonError("MESSAGE_NOT_DELIVERED", "A message must be delivered to this principal before acknowledgement.");
+    }
+    if (message.ackedBy?.some((ack) => ack.principal === context.principal.id)) return message;
+    this.store.recordAck(subjectName, messageId, { principal: context.principal.id, time: new Date().toISOString() });
     this.audit.write("delivery.acked", {
       subject: subjectName,
       messageId,

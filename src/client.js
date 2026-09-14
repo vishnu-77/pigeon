@@ -59,6 +59,11 @@ export class PigeonClient {
     return messages;
   }
 
+  async ack(subject, messageId) {
+    this.#requireContract();
+    return this.#post(`/v1/subjects/${encodeURIComponent(subject)}/messages/${encodeURIComponent(messageId)}/ack`, {}, true);
+  }
+
   async subjects() {
     return (await this.#get("/v1/subjects")).subjects;
   }

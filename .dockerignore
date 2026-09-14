@@ -5,3 +5,11 @@ node_modules
 npm-debug.log
 work
 outputs
+**/node_modules
+**/.next
+**/.vercel
+**/.env*
+.env*
+demo
+web
+dist

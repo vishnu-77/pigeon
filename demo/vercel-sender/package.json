@@ -1,7 +1,1 @@
-{
-  "name": "pigeon-demo-sender",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Public Pigeon demo sender: publishes scenario-driven governed messages to the hosted broker."
-}
+{"name":"pigeon-demo-sender","private":true,"type":"module","engines":{"node":">=22"}}

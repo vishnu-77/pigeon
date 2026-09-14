@@ -36,6 +36,9 @@ jobs:
       - name: Run deterministic demo
         run: npm run demo
 
+      - name: Run network demo (smoke test)
+        run: npm run demo:network
+
   benchmark:
     name: Enforcement benchmark
     runs-on: ubuntu-latest

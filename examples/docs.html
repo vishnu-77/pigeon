@@ -113,8 +113,10 @@
       <div class="label">Base URL</div>
       <pre id="baseurl" class="mono">-</pre>
       <div class="label">Identity headers</div>
-      <pre class="mono"><span class="k">x-pigeon-principal</span>: spiffe://.../sa/your-service
+      <pre class="mono"><span class="k">authorization</span>: Bearer checkout-token
+<span class="k">x-pigeon-contract</span>: contract returned by POST /v1/contracts
 <span class="k">x-pigeon-region</span>:    uk</pre>
+      <p class="desc">Negotiate a contract with your bearer token first. Try-it calls negotiate automatically before publishing, receiving or acknowledging.</p>
     </div></div>
     <div class="card"><div class="body">
       <div class="label">Error shape</div>
@@ -144,8 +146,8 @@
 const ORIGIN = location.origin;
 document.getElementById("baseurl").textContent = ORIGIN;
 
-const CHECKOUT = "spiffe://merchant-prod/ns/checkout/sa/checkout-api";
-const GATEWAY  = "spiffe://merchant-prod/ns/payments/sa/gateway-adapter";
+const CHECKOUT = "checkout-token";
+const GATEWAY  = "gateway-token";
 
 const ENVELOPE = {
   subject: "payments.authorize",
@@ -178,6 +180,13 @@ const endpoints = [
     sample:{ subject:{ name:"payments.authorize", mode:"requestReply", replay:{ allowed:false } } }
   },
   {
+    method:"POST", path:"/v1/contracts", kind:"contract",
+    desc:"Authenticate with a bearer token and negotiate a session contract for the requested subjects. Use its id in x-pigeon-contract on subsequent operations.",
+    headers:true, body:{ subjects:["payments.authorize"] },
+    codes:[["201","contract issued"],["401","missing or invalid token"],["403","no permitted subjects"]],
+    sample:{ contract:{ id:"contract_1", principal:"spiffe://merchant-prod/ns/checkout/sa/checkout-api", subjects:[{ name:"payments.authorize", operations:["publish"] }] } }
+  },
+  {
     method:"POST", path:"/v1/messages", kind:"publish",
     desc:"Publish a message to its subject. The broker checks identity, intent, schema, region, sensitive fields and idempotency before it is committed.",
     headers:true, body:ENVELOPE,
@@ -186,10 +195,17 @@ const endpoints = [
   },
   {
     method:"POST", path:"/v1/subjects/:name/receive", kind:"receive",
-    desc:"Pull authorized messages as a consumer. Advances the caller's delivery cursor.",
+    desc:"Pull authorized messages as a consumer (max: integer 1-1000). Advances the caller's delivery cursor. Acknowledge each message after processing; queue leases and automatic redelivery are not implemented.",
     headers:true, body:{ max:10 },
     codes:[["200","messages (possibly empty)"],["403","not allowed to receive"],["404","unknown subject"]],
     sample:{ messages:[{ id:"msg_...", sequence:1, data:{ orderId:"order_456" } }] }
+  },
+  {
+    method:"POST", path:"/v1/subjects/:name/messages/:id/ack", kind:"ack",
+    desc:"Acknowledge a message already delivered to this principal. Copy a message id from the receive response. Repeating an acknowledgement is safe.",
+    headers:true, body:{},
+    codes:[["200","acknowledged"],["401","unauthenticated"],["403","contract or policy denied"],["404","unknown message"],["409","not delivered to this principal"]],
+    sample:{ status:"acked", message:{ id:"msg_...", ackedBy:[{ principal:"spiffe://merchant-prod/ns/payments/sa/gateway-adapter" }] } }
   },
   {
     method:"GET", path:"/v1/audit", kind:"get",
@@ -212,7 +228,7 @@ function slug(p){ return p.replace(/[^a-z0-9]+/gi,"-"); }
 function curlFor(e){
   const url = ORIGIN + e.path.replace(":name","payments.authorize");
   if(e.method === "GET") return `curl ${url}`;
-  const hdr = `-H "content-type: application/json" \\\n  -H "x-pigeon-principal: ${e.kind==="receive"?GATEWAY:CHECKOUT}" \\\n  -H "x-pigeon-region: uk"`;
+  const hdr = `-H "content-type: application/json" \\\n  -H "authorization: Bearer ${["receive","ack"].includes(e.kind)?GATEWAY:CHECKOUT}" \\\n  -H "x-pigeon-region: uk"` + (e.kind === "contract" ? "" : ` \\\n  -H "x-pigeon-contract: REPLACE_WITH_NEGOTIATED_CONTRACT_ID"`);
   return `curl -X POST ${url} \\\n  ${hdr} \\\n  -d '${JSON.stringify(e.body)}'`;
 }
 
@@ -222,14 +238,15 @@ function render(){
     const id = slug(e.path + e.method);
     const codes = e.codes.map(([c,m]) =>
       `<tr><td class="code">${c}</td><td class="muted">${m}</td></tr>`).join("");
-    const headers = e.headers ? `<div class="label">Headers</div><pre class="mono"><span class="k">x-pigeon-principal</span>: ${e.kind==="receive"?GATEWAY:CHECKOUT}
+    const headers = e.headers ? `<div class="label">Headers</div><pre class="mono"><span class="k">authorization</span>: Bearer ${["receive","ack"].includes(e.kind)?GATEWAY:CHECKOUT}
+${e.kind === "contract" ? "" : '<span class="k">x-pigeon-contract</span>: negotiated contract id'}
 <span class="k">x-pigeon-region</span>:    uk
 <span class="k">content-type</span>:      application/json</pre>` : "";
     const body = e.body ? `<div class="label">Request body</div><pre class="mono">${pretty(e.body)}</pre>` : "";
-    const nameField = e.kind==="describe" || e.kind==="receive"
+    const nameField = ["describe","receive","ack"].includes(e.kind)
       ? `<label class="field">subject<input data-name="${id}" value="payments.authorize"></label>` : "";
     const principalField = e.headers
-      ? `<label class="field">x-pigeon-principal<input data-principal="${id}" value="${e.kind==="receive"?GATEWAY:CHECKOUT}"></label>
+      ? `<label class="field">Bearer token<input data-token="${id}" value="${["receive","ack"].includes(e.kind)?GATEWAY:CHECKOUT}"></label>
          <label class="field">x-pigeon-region<input data-region="${id}" value="uk" style="min-width:80px"></label>` : "";
     const bodyField = e.body
       ? `<div class="label">body (editable)</div><textarea data-body="${id}">${pretty(e.body)}</textarea>` : "";
@@ -250,7 +267,7 @@ function render(){
         <pre class="mono">${esc(curlFor(e))}</pre>
         <div class="try">
           <div class="row">
-            ${nameField}${principalField}
+            ${nameField}${principalField}${e.kind === "ack" ? `<label class="field">message id<input data-message="${id}" placeholder="msg_..."></label>` : ""}
             <button class="btn primary" onclick="runTry('${id}')" style="align-self:flex-end">Try it</button>
           </div>
           ${bodyField}
@@ -268,16 +285,29 @@ async function runTry(id){
   const out = document.getElementById("out-"+id);
   out.innerHTML = `<div class="status muted">calling...</div>`;
   let path = e.path;
-  if(e.kind==="describe" || e.kind==="receive") path = path.replace(":name", encodeURIComponent(val("name",id) || "payments.authorize"));
+  if(["describe","receive","ack"].includes(e.kind)) path = path.replace(":name", encodeURIComponent(val("name",id) || "payments.authorize"));
+  if(e.kind==="ack") path = path.replace(":id", encodeURIComponent(val("message",id)));
   const opts = { method:e.method, headers:{} };
   if(e.headers){
     opts.headers["content-type"]="application/json";
-    opts.headers["x-pigeon-principal"]=val("principal",id);
+    opts.headers["authorization"]="Bearer " + val("token",id);
     opts.headers["x-pigeon-region"]=val("region",id) || "uk";
     try{ opts.body = JSON.stringify(JSON.parse(val("body",id))); }
     catch(err){ out.innerHTML = `<div class="status err">invalid JSON in body: ${esc(err.message)}</div>`; return; }
   }
   try{
+    if(e.headers && e.kind !== "contract"){
+      const subject = e.kind === "publish" ? JSON.parse(opts.body).subject : val("name",id) || "payments.authorize";
+      const negotiation = await fetch(ORIGIN+"/v1/contracts", {
+        method:"POST", headers:opts.headers, body:JSON.stringify({subjects:[subject]})
+      });
+      const negotiated = await negotiation.json();
+      if(!negotiation.ok){
+        out.innerHTML = `<div class="status err">${negotiation.status} contract negotiation failed</div><pre class="mono">${pretty(negotiated)}</pre>`;
+        return;
+      }
+      opts.headers["x-pigeon-contract"] = negotiated.contract.id;
+    }
     const res = await fetch(ORIGIN+path, opts);
     let json; try{ json = await res.json(); }catch{ json = {}; }
     const ok = res.status < 400;

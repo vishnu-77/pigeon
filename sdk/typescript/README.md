@@ -46,7 +46,12 @@ await attacker.connect(["payments.authorize"]); // throws PigeonClientError NO_P
 | `connect(subjects, { ttlMs? })` | Authenticate and negotiate a session contract. |
 | `publish(message)` | Publish a full envelope under the contract. |
 | `request(subject, data, options)` | Convenience wrapper that builds the envelope. |
-| `receive(subject, { max })` | Pull authorized messages. |
-| `subjects()` / `quarantine()` | Read the subject catalog / quarantine. |
+| `receive(subject, { max })` | Pull authorized messages (integer max: 1-1000). |
+| `ack(subject, messageId)` | Acknowledge a previously delivered message; retries are idempotent. |
+| `subjects()` / `quarantine()` / `audit()` | Read the subject catalog, quarantine, or audit trail. |
+
+After processing a received message, call `await gateway.ack(subject, message.id)`.
+Acknowledgement requires the receiver's contract and is persisted by the file store.
+`request()` returns publish acceptance; it does not wait for a business reply.
 
 Errors are `PigeonClientError` with `.code`, `.status`, and `.details`.

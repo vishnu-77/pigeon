@@ -2,9 +2,12 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
 COPY src ./src
+COPY policies ./policies
 COPY examples ./examples
+COPY sdk ./sdk
 COPY docs ./docs
 COPY README.md ./
 

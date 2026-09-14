@@ -205,3 +205,41 @@ test("delivers only authorized messages to the receiver", async () => {
   assert.equal(response.status, 200);
   assert.ok((await response.json()).messages.length >= 1);
 });
+
+test("HTTP acknowledgement enforces identity, contract and prior delivery, and is idempotent", async () => {
+  const checkoutCid = await contractId(CHECKOUT_TOKEN, ["payments.authorize"]);
+  const gatewayCid = await contractId(GATEWAY_TOKEN, ["payments.authorize"]);
+  const { message } = await (await publish(CHECKOUT_TOKEN, checkoutCid,
+    authorizePayment({ idempotencyKey: "http_ack:authorize" }))).json();
+  const ack = (token, cid, id = message.id) => fetch(`${base}/v1/subjects/payments.authorize/messages/${id}/ack`, {
+    method: "POST", headers: auth(token, cid ? { "x-pigeon-contract": cid } : {}), body: "{}"
+  });
+  assert.equal((await ack("invalid", gatewayCid)).status, 401);
+  assert.equal((await ack(GATEWAY_TOKEN)).status, 403);
+  assert.equal((await ack(GATEWAY_TOKEN, checkoutCid)).status, 403);
+  assert.equal((await ack(CHECKOUT_TOKEN, checkoutCid)).status, 403);
+  const undelivered = await ack(GATEWAY_TOKEN, gatewayCid);
+  assert.equal(undelivered.status, 409);
+  assert.equal((await undelivered.json()).error.code, "MESSAGE_NOT_DELIVERED");
+  assert.equal((await ack(GATEWAY_TOKEN, gatewayCid, "missing")).status, 404);
+  await fetch(`${base}/v1/subjects/payments.authorize/receive`, {
+    method: "POST", headers: auth(GATEWAY_TOKEN, { "x-pigeon-contract": gatewayCid }), body: '{"max":100}'
+  });
+  const first = await ack(GATEWAY_TOKEN, gatewayCid);
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).status, "acked");
+  const second = await (await ack(GATEWAY_TOKEN, gatewayCid)).json();
+  assert.equal(second.message.ackedBy.length, 1);
+  const { records } = await (await fetch(`${base}/v1/audit`)).json();
+  assert.equal(records.filter((r) => r.type === "delivery.acked" && r.messageId === message.id).length, 1);
+});
+
+test("receive rejects invalid batch sizes without dispatching", async () => {
+  const cid = await contractId(GATEWAY_TOKEN, ["payments.authorize"]);
+  for (const max of [0, -1, 1.5, "10", 1001]) {
+    const response = await fetch(`${base}/v1/subjects/payments.authorize/receive`, {
+      method: "POST", headers: auth(GATEWAY_TOKEN, { "x-pigeon-contract": cid }), body: JSON.stringify({ max })
+    });
+    assert.equal(response.status, 400);
+  }
+});

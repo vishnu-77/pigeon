@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- PigeonMQ landing page with a real, isolated four-scenario message demo and mobile layout.
+- Brand mark: the origami pigeon logo traced to a 2 KB SVG (`examples/pigeon-mark.svg`) and used
+  for the landing page header, hero, broker stop, footer, favicon, touch icon and social image.
+  The landing page now uses the paper, navy and coral palette drawn from the logo, and the
+  "Experimental" project note was removed from the live page.
+- Bounded visitor sessions, separate hosted sender/receiver forwarding services and a
+  concurrent hosted-flow verification script.
+- HTTP/SDK acknowledgement with prior-delivery checks and durable delivery/ack records.
+- `npm run demo:network`: a verified broker/sender/receiver HTTP demo with process cleanup.
 - **Policy-compiled session contracts** ([ADR-0006](docs/adr/0006-session-contracts.md)):
   authenticate -> negotiate a contract -> run messages under a validated `contract_id`.
 - Server-side authentication (bearer token -> principal); identity is bound to the
@@ -28,11 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - This changelog.
 
 ### Changed
+- Custom store adapters must implement `recordDelivery(subject, id, delivery)` and
+  `recordAck(subject, id, acknowledgement)` so delivery state can be persisted.
 - Region enforcement is applied once (via subject `regionPolicy`), not doubled.
 - HTTP API adds `/v1/contracts` and quarantine release; publish/receive now require a
   contract. The `x-pigeon-principal` header is no longer trusted.
 
 ### Fixed
+- Demo clients verify deduplication, exact denial, redacted quarantine and acknowledgement;
+  runs use fresh IDs and fail when required peers or evidence are absent.
+- Dashboard acknowledges deliveries and refreshes stale contracts; API-reference Try-it
+  controls now authenticate and negotiate contracts.
 - The published npm package was missing `examples/`, so `pigeon broker start` (and
   `npm start` against an installed copy) crashed with `ENOENT` looking for the
   dashboard/docs HTML. `examples/dashboard.html` and `examples/docs.html` are now
