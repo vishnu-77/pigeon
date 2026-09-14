@@ -18,7 +18,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/vishnu-77/pigeon"
+Homepage = "https://pigeonmq.cc"
+Documentation = "https://pigeonmq.cc"
 Repository = "https://github.com/vishnu-77/pigeon"
 Issues = "https://github.com/vishnu-77/pigeon/issues"
 
