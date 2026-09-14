@@ -2,11 +2,11 @@
   "name": "pigeon-website",
   "version": "1.0.0",
   "private": true,
-  "description": "Developer and researcher landing page for Pigeon, the contract-native message broker",
+  "description": "Developer, researcher and live-demo site for Pigeon, the contract-native message broker",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "npx serve out"
+    "start": "next start"
   },
   "dependencies": {
     "lucide-react": "1.45.0",
