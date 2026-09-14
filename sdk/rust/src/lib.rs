@@ -81,10 +81,18 @@ impl PigeonClient {
         message.insert("subject".into(), json!(subject));
         message.insert(
             "type".into(),
-            json!(options.message_type.unwrap_or_else(|| format!("{subject}.request"))),
+            json!(options
+                .message_type
+                .unwrap_or_else(|| format!("{subject}.request"))),
         );
-        message.insert("source".into(), json!(options.source.unwrap_or_else(|| "sdk-rust".into())));
-        message.insert("region".into(), json!(options.region.unwrap_or_else(|| self.region.clone())));
+        message.insert(
+            "source".into(),
+            json!(options.source.unwrap_or_else(|| "sdk-rust".into())),
+        );
+        message.insert(
+            "region".into(),
+            json!(options.region.unwrap_or_else(|| self.region.clone())),
+        );
         message.insert("data".into(), data);
         insert_optional(&mut message, "intent", options.intent);
         insert_optional(&mut message, "idempotencyKey", options.idempotency_key);
@@ -93,7 +101,11 @@ impl PigeonClient {
         self.publish(Value::Object(message)).await
     }
 
-    pub async fn receive(&self, subject: &str, max: usize) -> Result<Vec<Value>, PigeonClientError> {
+    pub async fn receive(
+        &self,
+        subject: &str,
+        max: usize,
+    ) -> Result<Vec<Value>, PigeonClientError> {
         self.require_contract()?;
         let path = format!("/v1/subjects/{subject}/receive");
         let payload = self.post(&path, json!({ "max": max }), true).await?;
@@ -152,16 +164,28 @@ impl PigeonClient {
         parse_response(response.status(), response).await
     }
 
-    async fn post(&self, path: &str, body: Value, with_contract: bool) -> Result<Value, PigeonClientError> {
+    async fn post(
+        &self,
+        path: &str,
+        body: Value,
+        with_contract: bool,
+    ) -> Result<Value, PigeonClientError> {
         let response = self
-            .apply_headers(self.http.post(format!("{}{}", self.url, path)).json(&body), with_contract)
+            .apply_headers(
+                self.http.post(format!("{}{}", self.url, path)).json(&body),
+                with_contract,
+            )
             .send()
             .await
             .map_err(network_error)?;
         parse_response(response.status(), response).await
     }
 
-    fn apply_headers(&self, mut request: reqwest::RequestBuilder, with_contract: bool) -> reqwest::RequestBuilder {
+    fn apply_headers(
+        &self,
+        mut request: reqwest::RequestBuilder,
+        with_contract: bool,
+    ) -> reqwest::RequestBuilder {
         request = request.header("x-pigeon-region", &self.region);
         if let Some(token) = &self.token {
             request = request.bearer_auth(token);
@@ -201,7 +225,10 @@ fn network_error(error: reqwest::Error) -> PigeonClientError {
     }
 }
 
-async fn parse_response(status: StatusCode, response: reqwest::Response) -> Result<Value, PigeonClientError> {
+async fn parse_response(
+    status: StatusCode,
+    response: reqwest::Response,
+) -> Result<Value, PigeonClientError> {
     let payload = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
     if status.is_success() {
         return Ok(payload);
