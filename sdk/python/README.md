@@ -2,10 +2,16 @@
 
 Official Python client for the Pigeon contract-native message broker.
 
-> Registry publication is prepared but not yet part of the main release workflow. Until a PyPI release is cut, install from the repository subdirectory for development.
+> PyPI and TestPyPI Trusted Publishing are wired into `.github/workflows/release.yml`. Until the first registry release is cut, install from the repository subdirectory for development.
 
 ```bash
 pip install ./sdk/python
+```
+
+After the first PyPI release:
+
+```bash
+pip install pigeonmq
 ```
 
 ```python
