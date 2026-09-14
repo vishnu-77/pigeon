@@ -3,31 +3,33 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pigeon sender service</title>
+  <title>Pigeon demo sender</title>
   <style>
     :root{--paper:#f4f1e8;--soft:#faf8f2;--ink:#171512;--muted:#6d675e;--line:#d7d0c3;--strong:#b9afa0;--brand:#a64b36;--ok:#4f715b}
-    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 Inter,system-ui,-apple-system,sans-serif}a{color:inherit;text-decoration:none}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.top{border-bottom:1px solid var(--line)}.topin,main{max-width:1040px;margin:0 auto;padding-left:24px;padding-right:24px}.topin{height:62px;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.03em}.mark{width:28px;height:28px;border:1px solid var(--strong);display:grid;place-items:center}.mark:before{content:"";width:14px;height:10px;background:#17324a;clip-path:polygon(0 25%,48% 44%,28% 0,100% 48%,64% 62%,72% 100%,44% 72%,20% 92%,37% 61%)}.back{font-size:12px;color:var(--muted)}main{padding-top:72px;padding-bottom:72px}.k{font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--brand);text-transform:uppercase;letter-spacing:.13em}h1{font-size:48px;line-height:.98;letter-spacing:-.05em;margin:22px 0 0;max-width:660px}p{color:var(--muted);max-width:720px}.lead{margin-top:22px;font-size:16px;line-height:1.8}.grid{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);margin-top:40px}.cell{padding:18px;border-right:1px solid var(--line)}.cell:last-child{border-right:0}.label{font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);letter-spacing:.1em}.value{display:block;margin-top:10px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.ok{color:var(--ok)}.panel{margin-top:24px;border:1px solid var(--line);background:var(--soft)}.row{display:grid;grid-template-columns:180px 1fr;padding:16px 18px;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row span:first-child{font:10px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}.actions{margin-top:26px;display:flex;gap:10px;flex-wrap:wrap}.btn{height:40px;display:inline-flex;align-items:center;border:1px solid var(--strong);padding:0 14px;font-size:13px}.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}@media(max-width:760px){.grid{grid-template-columns:1fr 1fr}.cell:nth-child(2){border-right:0}.cell:nth-child(-n+2){border-bottom:1px solid var(--line)}.row{grid-template-columns:1fr;gap:7px}h1{font-size:40px}}@media(max-width:480px){.grid{grid-template-columns:1fr}.cell{border-right:0;border-bottom:1px solid var(--line)}.cell:last-child{border-bottom:0}}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.shell{max-width:980px;margin:0 auto;padding:28px 22px 64px}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:18px}.brand{font-weight:700;letter-spacing:.04em}.k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}h1{font-size:52px;line-height:.98;letter-spacing:-.045em;margin:52px 0 16px;max-width:650px}p{color:var(--muted);max-width:720px}.grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-top:38px}.cell{padding:18px;background:var(--soft);border-right:1px solid var(--line)}.cell:last-child{border-right:0}.label{display:block;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}.value{display:block;margin-top:8px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.ok{color:var(--ok)}.panel{margin-top:28px;border:1px solid var(--strong);background:var(--soft)}.row{display:grid;grid-template-columns:150px 1fr;gap:20px;padding:14px 16px;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.actions{margin-top:28px;display:flex;gap:22px;flex-wrap:wrap}.actions a{border-bottom:1px solid var(--strong);padding-bottom:2px}.actions a:hover{border-color:var(--ink)}@media(max-width:700px){h1{font-size:42px}.grid{grid-template-columns:1fr}.cell{border-right:0;border-bottom:1px solid var(--line)}.cell:last-child{border-bottom:0}.row{grid-template-columns:1fr;gap:5px}}
   </style>
 </head>
 <body>
-  <header class="top"><div class="topin"><a class="brand" href="https://www.pigeonmq.cc"><span class="mark"></span>PIGEON</a><a class="back" href="https://demo.pigeonmq.cc">← live demo</a></div></header>
-  <main>
-    <div class="k">public demo · backend transparency</div>
-    <h1>Sender service</h1>
-    <p class="lead">A deliberately narrow publishing surface for the Pigeon public demo. It negotiates a communication contract server-side, submits a predefined message, and returns the broker decision. Browser users never provide subjects, broker credentials or arbitrary payloads.</p>
-    <div class="grid">
-      <div class="cell"><span class="label">role</span><span class="value">PUBLISHER</span></div>
-      <div class="cell"><span class="label">protocol</span><span class="value">PIGEON V1</span></div>
-      <div class="cell"><span class="label">scenarios</span><span class="value">2 LIVE</span></div>
-      <div class="cell"><span class="label">health</span><a class="value ok" href="/api/health">/api/health</a></div>
-    </div>
-    <div class="panel">
-      <div class="row"><span>Broker target</span><span class="mono">PIGEON_URL → broker.pigeonmq.cc</span></div>
-      <div class="row"><span>Live subjects</span><span class="mono">payments.authorize · notifications.send</span></div>
-      <div class="row"><span>Execution</span><span>Authenticate → negotiate contract → publish → return decision</span></div>
-      <div class="row"><span>Boundary</span><span>No arbitrary subject, token, contract or payload input from the public browser.</span></div>
-    </div>
-    <div class="actions"><a class="btn primary" href="https://demo.pigeonmq.cc">Open interactive demo</a><a class="btn" href="https://github.com/vishnu-77/pigeon/tree/main/demo/vercel-sender">Inspect source</a></div>
-  </main>
+<main class="shell">
+  <div class="top"><a class="brand" href="https://www.pigeonmq.cc">PIGEON</a><span class="mono">sender.pigeonmq.cc</span></div>
+  <div class="k" style="margin-top:48px">Public demo service</div>
+  <h1>Sender</h1>
+  <p>This service represents the publishing principal in the public Pigeon demo. It negotiates a communication contract with the broker, then submits only the selected demo message under that contract.</p>
+
+  <div class="grid">
+    <div class="cell"><span class="label">ROLE</span><span class="value">PUBLISHER</span></div>
+    <div class="cell"><span class="label">HEALTH</span><span class="value ok"><a href="/api/health">/api/health</a></span></div>
+    <div class="cell"><span class="label">TRANSPORT</span><span class="value">HTTPS</span></div>
+  </div>
+
+  <section class="panel">
+    <div class="row"><span class="label">INTERACTIVE MESSAGE</span><span class="value">POST /api/message</span></div>
+    <div class="row"><span class="label">LIVE EXAMPLES</span><span class="value">demo.message · payments.authorize · notifications.send</span></div>
+    <div class="row"><span class="label">BROKER TARGET</span><span class="value">PIGEON_URL → broker.pigeonmq.cc</span></div>
+    <div class="row"><span class="label">FLOW</span><span class="value">authenticate → negotiate contract → publish → broker decision</span></div>
+  </section>
+
+  <div class="actions"><a href="https://demo.pigeonmq.cc">Open live demo ↗</a><a href="https://github.com/vishnu-77/pigeon">View source ↗</a></div>
+</main>
 </body>
 </html>
