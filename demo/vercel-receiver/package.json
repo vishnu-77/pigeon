@@ -1,0 +1,7 @@
+{
+  "name": "pigeon-demo-receiver",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Public Pigeon demo receiver: consumes governed messages from the hosted broker."
+}
