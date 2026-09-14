@@ -1,7 +1,6 @@
 import http from "node:http";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { PigeonBroker } from "./broker.js";
 import { AuditLog } from "./audit.js";
 import { FileStore } from "./file-store.js";
@@ -10,16 +9,11 @@ import { isPigeonError, PigeonError } from "./errors.js";
 
 const MAX_BODY_BYTES = 1_048_576; // 1 MiB
 
-const EXAMPLES = join(dirname(fileURLToPath(import.meta.url)), "..", "examples");
-const DASHBOARD = readFileSync(join(EXAMPLES, "dashboard.html"), "utf8");
-const DOCS = readFileSync(join(EXAMPLES, "docs.html"), "utf8");
-
-// Route table. Path patterns are matched first; a path match with the wrong
-// method yields 405 instead of falling through to 404.
+// The broker deliberately serves an API only. The public landing/research experience
+// lives on the dedicated `website` branch so presentation code never becomes a runtime
+// dependency of the message broker.
 const routes = [
-  { method: "GET", pattern: /^\/$/, handler: dashboard },
-  { method: "GET", pattern: /^\/dashboard$/, handler: dashboard },
-  { method: "GET", pattern: /^\/docs$/, handler: docs },
+  { method: "GET", pattern: /^\/$/, handler: serviceInfo },
   { method: "GET", pattern: /^\/health$/, handler: health },
   { method: "GET", pattern: /^\/v1\/subjects$/, handler: listSubjects },
   { method: "GET", pattern: /^\/v1\/subjects\/([^/]+)$/, handler: describeSubject },
@@ -63,14 +57,21 @@ export function createPigeonServer(broker = createDemoBroker(PigeonBroker)) {
   });
 }
 
-function dashboard({ response }) {
-  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  response.end(DASHBOARD);
-}
-
-function docs({ response }) {
-  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  response.end(DOCS);
+function serviceInfo({ response }) {
+  send(response, 200, {
+    service: "pigeon",
+    description: "contract-native message broker",
+    protocol: "pigeon.v1",
+    contractRequired: true,
+    endpoints: {
+      health: "/health",
+      subjects: "/v1/subjects",
+      contracts: "/v1/contracts",
+      messages: "/v1/messages",
+      audit: "/v1/audit",
+      quarantine: "/v1/quarantine"
+    }
+  });
 }
 
 function health({ response }) {
