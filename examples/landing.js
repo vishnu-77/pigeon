@@ -244,3 +244,17 @@ evidence.policy = "Send a message to load the live subject policy.";
 renderEvidence();
 health();
 setInterval(() => { if (!document.hidden && !busy) health(); }, 15_000);
+
+// "How it works": one step open at a time; the reference chain follows it.
+const howSteps = [...document.querySelectorAll(".how-step")];
+const chainNodes = [...document.querySelectorAll("#ref-chain [data-step]")];
+function syncChain() {
+  const open = howSteps.find((step) => step.open);
+  const current = open ? Number(open.dataset.step) : 0;
+  chainNodes.forEach((node) => node.classList.toggle("active", Number(node.dataset.step) === current));
+}
+howSteps.forEach((step) => step.addEventListener("toggle", () => {
+  if (step.open) howSteps.forEach((other) => { if (other !== step && other.open) other.open = false; });
+  syncChain();
+}));
+syncChain();
