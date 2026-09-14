@@ -9,6 +9,7 @@ const help = {
 const buttons = { allow: "Send a message", retry: "Retry the same message", pan: "Send forbidden data", unauthorized: "Try this sender" };
 let scenario = "allow", busy = false, online = false, session = null, lastAccepted = null, messageId = null;
 let selectedEvidence = "payload";
+const traffic = [];
 let evidence = { payload: {}, policy: {}, response: "Send a message to see its actual response.", audit: "Your run's audit records will appear here." };
 
 function sample() {
@@ -68,13 +69,79 @@ function outcome(state, title, description, symbol = "↗") {
   $("outcome-symbol").textContent = symbol;
 }
 
+function clock(iso) {
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? "" : new Date(time).toISOString().slice(11, 23) + "Z";
+}
+
+function renderTraffic() {
+  $("traffic").replaceChildren(...traffic.map((entry) => {
+    const item = document.createElement("li");
+    item.dataset.ok = String(entry.ok);
+    const hop = document.createElement("span"); hop.className = "traffic-hop"; hop.textContent = entry.hop;
+    const call = document.createElement("span"); call.textContent = `${entry.method} ${entry.path}`;
+    const status = document.createElement("span"); status.className = "traffic-status"; status.textContent = `${entry.status} · ${entry.ms} ms`;
+    item.append(hop, call, status);
+    if (entry.via) { const via = document.createElement("small"); via.className = "traffic-via"; via.textContent = `via ${entry.via.split(" -> ").slice(1).join(" → ").replace(/ \((sender|receiver)\)/, "")}`; item.append(via); }
+    return item;
+  }));
+}
+
+function fly(index) {
+  const connector = document.querySelectorAll(".route-connector")[index];
+  if (!connector) return;
+  connector.dataset.flying = "false";
+  requestAnimationFrame(() => { connector.dataset.flying = "true"; });
+}
+
+function renderReceipt(message, acked, receiver, via) {
+  const fields = [
+    ["message", message.id],
+    ["type", message.type],
+    ["payment", `${message.data?.amount} ${message.data?.currency} · ${message.data?.orderId}`],
+    ["from", message.source],
+    ["delivered", `${clock(message.deliveries?.at(-1)?.time)} to ${receiver}`],
+    ["acknowledged", `${clock(acked.ackedBy?.at(-1)?.time)} by ${acked.ackedBy?.at(-1)?.principal?.split("/").pop() ?? receiver}`]
+  ];
+  $("receipt-fields").replaceChildren(...fields.flatMap(([label, value]) => {
+    const dt = document.createElement("dt"); dt.textContent = label;
+    const dd = document.createElement("dd"); dd.textContent = value;
+    return [dt, dd];
+  }));
+  $("receipt-via").textContent = via ? `returned by ${via.replace(/ \((sender|receiver)\)/, "")}` : "";
+  $("receipt").hidden = false;
+}
+
+function renderServices(services) {
+  const order = ["sender", "broker", "receiver"];
+  $("services").replaceChildren(...order.filter((name) => services?.[name]).map((name) => {
+    const pill = document.createElement("span");
+    pill.className = "service";
+    pill.dataset.ok = String(Boolean(services[name].ok));
+    const dot = document.createElement("span"); dot.className = "tiny-dot";
+    const label = document.createElement("b"); label.textContent = name;
+    let host = "";
+    try { host = new URL(services[name].url).host; } catch { host = ""; }
+    pill.append(dot, label, document.createTextNode(host ? ` ${host}` : ""));
+    pill.title = services[name].ok ? `${name} service is up` : `${name} service is down`;
+    return pill;
+  }));
+}
+
 async function request(path, { method = "GET", token, contractId, body, root = false } = {}) {
   const headers = { "content-type": "application/json", "x-pigeon-region": "uk" };
   if (token) headers.authorization = `Bearer ${token}`;
   if (contractId) headers["x-pigeon-contract"] = contractId;
+  const startedAt = performance.now();
   const response = await fetch((root ? "" : session.basePath) + path, {
     method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20000), cache: "no-store"
   });
+  const via = response.headers.get("x-demo-via") || "";
+  traffic.push({
+    hop: /receiver/.test(via) ? "RECEIVER" : /sender/.test(via) ? "SENDER" : "BROKER",
+    method, path, status: response.status, ok: response.ok, ms: Math.round(performance.now() - startedAt), via
+  });
+  renderTraffic();
   let json;
   try { json = await response.json(); } catch { throw new Error("The broker returned an unreadable response. Please try again."); }
   if (!response.ok) {
@@ -107,6 +174,10 @@ async function run() {
   renderControls();
   messageId = null;
   $("result-meta").hidden = true;
+  $("receipt").hidden = true;
+  traffic.length = 0;
+  renderTraffic();
+  for (const connector of document.querySelectorAll(".route-connector")) connector.dataset.flying = "false";
   const started = performance.now();
   const activeScenario = scenario;
   const payload = preparePayload();
@@ -128,6 +199,7 @@ async function run() {
       responses.senderContract = contract;
       stage("sender", "done", "Contract negotiated");
       stage("broker", "active", "Checking the message");
+      fly(0);
       responses.publish = await request("/v1/messages", { method: "POST", token, contractId: contract.id, body: payload });
     } catch (error) {
       const expected = activeScenario === "pan" ? "SENSITIVE_FIELD_DENIED" : activeScenario === "unauthorized" ? "NO_PERMITTED_SUBJECTS" : null;
@@ -141,6 +213,7 @@ async function run() {
       method: "POST", token: "gateway-token", contractId: gateway.id, body: { max: 10 }
     });
     responses.receive = received;
+    if (received.messages.length) fly(1);
     if (denied) {
       if (received.messages.length !== 0) throw new Error("A blocked message reached the receiver. The demo has stopped.");
       const quarantine = (await request("/v1/quarantine")).records.filter((r) => r.message.idempotencyKey === payload.idempotencyKey);
@@ -154,21 +227,22 @@ async function run() {
       if (responses.publish.status !== "duplicate" || received.messages.length !== 0) throw new Error("The retry was not safely deduplicated.");
       messageId = responses.publish.message.id;
       stage("sender", "done", "Same message, same key");
-      stage("broker", "done", "Original returned");
-      stage("receiver", "", "No new delivery");
+      stage("broker", "done", `Original ${messageId.slice(0, 12)}… returned`);
+      stage("receiver", "", "No new delivery to acknowledge");
       outcome("duplicate", "Once was enough.", "The same idempotency key returned the original message. No second copy was accepted, and the receiver got no new delivery.", "↺");
     } else {
       if (responses.publish.status !== "accepted" || received.messages.length !== 1 || received.messages[0].id !== responses.publish.message.id) throw new Error("The sender and receiver results did not match.");
       messageId = responses.publish.message.id;
-      stage("broker", "done", "Accepted by policy");
-      stage("receiver", "active", "Acknowledging delivery");
+      stage("broker", "done", `Accepted ${clock(responses.publish.message.acceptedAt)}`);
+      stage("receiver", "active", `Received ${clock(received.messages[0].deliveries?.at(-1)?.time)} · acknowledging`);
       responses.ack = await request(`/v1/subjects/${SUBJECT}/messages/${encodeURIComponent(messageId)}/ack`, {
         method: "POST", token: "gateway-token", contractId: gateway.id, body: {}
       });
       if (responses.ack.status !== "acked" || !responses.ack.message.ackedBy.some((a) => a.principal === gateway.principal)) throw new Error("The receiver's acknowledgement was not recorded.");
       lastAccepted = structuredClone(payload);
-      stage("sender", "done", "Sent under contract");
-      stage("receiver", "done", "Received & acknowledged");
+      stage("sender", "done", `Sent under ${responses.senderContract.id}`);
+      stage("receiver", "done", `Received & acknowledged ${clock(responses.ack.message.ackedBy.at(-1)?.time)}`);
+      renderReceipt(received.messages[0], responses.ack.message, "gateway-adapter", traffic.findLast((entry) => entry.hop === "RECEIVER")?.via.split(" -> ")[1] ?? "");
       outcome("success", "Delivered. With the rules intact.", "The sender was authorized, the payment data met the policy, and the receiver acknowledged the same message. You can now retry it or change one condition.", "✓");
     }
     evidence.audit = (await request("/v1/audit")).records.slice(before);
@@ -195,11 +269,18 @@ async function run() {
 }
 
 async function health() {
-  try { online = (await fetch("/health", { signal: AbortSignal.timeout(12000), cache: "no-store" })).ok; } catch { online = false; }
+  let services = null;
+  try {
+    const response = await fetch("/health", { signal: AbortSignal.timeout(12000), cache: "no-store" });
+    online = response.ok;
+    services = (await response.json()).services ?? null;
+  } catch { online = false; }
   $("connection").dataset.state = online ? "online" : "offline";
   $("connection").replaceChildren();
   const dot = document.createElement("span"); dot.className = "tiny-dot";
-  $("connection").append(dot, document.createTextNode(online ? "Live broker is ready" : "Broker unavailable · retrying"));
+  const up = services ? Object.values(services).filter((service) => service.ok).length : 0;
+  $("connection").append(dot, document.createTextNode(online ? "Sender, broker and receiver are live" : `${up} of 3 live services reachable · retrying`));
+  if (services) renderServices(services);
   renderControls();
 }
 
@@ -210,6 +291,10 @@ async function reset() {
   if (previous) fetch(previous.basePath, { method: "DELETE", signal: AbortSignal.timeout(5000) }).catch(() => {});
   evidence = { payload: pendingMessage, policy: "Send a message to load the live subject policy.", response: "Send a message to see its actual response.", audit: "Your run's audit records will appear here." };
   $("result-meta").hidden = true;
+  $("receipt").hidden = true;
+  traffic.length = 0;
+  renderTraffic();
+  for (const connector of document.querySelectorAll(".route-connector")) connector.dataset.flying = "false";
   $("run-label").textContent = "Your own isolated demo";
   stage("sender", "", "Ready to send"); stage("broker", "", "Policy at the door"); stage("receiver", "", "Waiting for a message");
   outcome("idle", "Your first message is ready.", "Press send to watch PigeonMQ check the policy, deliver the message, and record the receiver’s acknowledgement.");
@@ -244,3 +329,17 @@ evidence.policy = "Send a message to load the live subject policy.";
 renderEvidence();
 health();
 setInterval(() => { if (!document.hidden && !busy) health(); }, 15_000);
+
+// "How it works": one step open at a time; the reference chain follows it.
+const howSteps = [...document.querySelectorAll(".how-step")];
+const chainNodes = [...document.querySelectorAll("#ref-chain [data-step]")];
+function syncChain() {
+  const open = howSteps.find((step) => step.open);
+  const current = open ? Number(open.dataset.step) : 0;
+  chainNodes.forEach((node) => node.classList.toggle("active", Number(node.dataset.step) === current));
+}
+howSteps.forEach((step) => step.addEventListener("toggle", () => {
+  if (step.open) howSteps.forEach((other) => { if (other !== step && other.open) other.open = false; });
+  syncChain();
+}));
+syncChain();
