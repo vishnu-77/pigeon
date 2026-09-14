@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LiveDemo } from "@/components/LiveDemo";
+import { LiveDemoV2 } from "@/components/LiveDemoV2";
 
 export const metadata: Metadata = {
   title: "Live demo — Pigeon",
@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://demo.pigeonmq.cc" },
   openGraph: {
     title: "Pigeon live demo",
-    description: "Run a real communication contract and watch Pigeon allow or quarantine the message before delivery.",
+    description: "Run a real communication contract and watch Pigeon allow or quarantine a message before delivery.",
     url: "https://demo.pigeonmq.cc",
     siteName: "Pigeon",
     type: "website"
@@ -15,5 +15,5 @@ export const metadata: Metadata = {
 };
 
 export default function DemoPage() {
-  return <LiveDemo />;
+  return <LiveDemoV2 />;
 }
