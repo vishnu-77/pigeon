@@ -5,7 +5,8 @@ edition = "2021"
 description = "Rust client for the Pigeon contract-native message broker"
 license = "Apache-2.0"
 repository = "https://github.com/vishnu-77/pigeon"
-homepage = "https://github.com/vishnu-77/pigeon"
+homepage = "https://pigeonmq.cc"
+documentation = "https://pigeonmq.cc"
 keywords = ["messaging", "broker", "governance", "contracts"]
 categories = ["network-programming", "api-bindings"]
 
