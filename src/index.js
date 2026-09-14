@@ -5,6 +5,13 @@ export { PigeonClient, PigeonClientError } from "./client.js";
 export { compileSubject, candidateRules } from "./compile.js";
 export { ContractRegistry } from "./contracts.js";
 export { PigeonError, isPigeonError } from "./errors.js";
+export {
+  FEDERATION_VERSION,
+  issueFederationGrant,
+  verifyFederationGrant,
+  assertFederationAttenuation,
+  localFederationContext
+} from "./federation.js";
 export { PolicyEngine } from "./policy.js";
 export { loadCatalog, lintCatalog, applyCatalog } from "./policy-loader.js";
 export { RateLimiter } from "./ratelimit.js";
@@ -16,9 +23,12 @@ export {
   paymentsAuthorizeSubject,
   notificationSendSchema,
   notificationsSendSubject,
+  demoMessageSchema,
+  demoMessageSubject,
   DEMO_PRINCIPALS,
   DEMO_TOKENS,
   registerDemoAuth,
+  registerPublicDemoSubject,
   createPaymentBroker,
   registerDemoSubjects,
   createDemoBroker
