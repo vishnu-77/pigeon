@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, X } from "lucide-react";
 import { PigeonLogo } from "@/components/PigeonLogo";
 
-type ScenarioKey = "agent-tool-call" | "payments" | "customer-data" | "cross-region" | "deployment-event" | "notifications";
+type ScenarioKey = "message" | "payments" | "notifications";
 type Mode = "allow" | "violation";
 type ServiceState = { ok: boolean; latencyMs?: number; status?: number };
 type StatusPayload = { ok: boolean; services?: Record<string, ServiceState> };
+type TimingSet = { contractMs?: number; publishMs?: number; receiveMs?: number; evidenceMs?: number; totalMs?: number };
 type RunPayload = {
   live?: boolean;
   runId?: string;
@@ -15,17 +16,32 @@ type RunPayload = {
   decision?: string;
   error?: string;
   code?: string;
+  contract?: { id?: string; expiresAt?: string };
+  message?: { id?: string; subject?: string; preview?: string };
   gates?: Array<{ name?: string; gate?: string; pass?: boolean; outcome?: string; reason?: string }>;
-  receiver?: { receivedCount?: number };
+  sender?: { timings?: TimingSet };
+  receiver?: { receivedCount?: number; proof?: string; timings?: TimingSet };
+  audit?: unknown[];
+  quarantine?: unknown[];
+  transport?: { sender?: string; receiver?: string };
 };
 
-const SCENARIOS: Record<ScenarioKey, { label: string; subject: string; proof: string; violation: string; live: boolean }> = {
-  "agent-tool-call": { label: "AI agent → tool runner", subject: "agents.tool.invoke", proof: "delegated intent + tool scope", violation: "action falls outside the negotiated communication scope", live: false },
-  payments: { label: "Checkout → payment gateway", subject: "payments.authorize", proof: "PCI + sensitive-field boundary", violation: "raw card data enters the message", live: true },
-  "customer-data": { label: "Profile service → analytics", subject: "customer.profile.export", proof: "classification + purpose boundary", violation: "restricted customer data crosses the contract", live: false },
-  "cross-region": { label: "EU service → processing worker", subject: "processing.customer.event", proof: "runtime region boundary", violation: "message targets a disallowed region", live: false },
-  "deployment-event": { label: "CI runner → deploy controller", subject: "deploy.release.request", proof: "environment + intent boundary", violation: "staging-scoped publisher requests production", live: false },
-  notifications: { label: "Order service → notifier", subject: "notifications.send", proof: "schema + PII + idempotency", violation: "forbidden recipient data is attached", live: true }
+const SCENARIOS: Record<ScenarioKey, { label: string; subject: string; description: string }> = {
+  message: {
+    label: "Your message",
+    subject: "demo.message",
+    description: "Type any short message and send it through a real Pigeon sender, broker and receiver."
+  },
+  notifications: {
+    label: "Service → service",
+    subject: "notifications.send",
+    description: "Order-service communication governed by schema, PII, region and idempotency policy."
+  },
+  payments: {
+    label: "Transaction → gateway",
+    subject: "payments.authorize",
+    description: "Payment-authorisation communication governed by PCI data constraints and tokenisation policy."
+  }
 };
 
 const SERVICE_LINKS = {
@@ -35,14 +51,19 @@ const SERVICE_LINKS = {
 } as const;
 
 export function LiveDemoV2() {
-  const [scenario, setScenario] = useState<ScenarioKey>("payments");
-  const [mode, setMode] = useState<Mode>("violation");
+  const [scenario, setScenario] = useState<ScenarioKey>("message");
+  const [mode, setMode] = useState<Mode>("allow");
+  const [message, setMessage] = useState("Hello from Pigeon");
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [result, setResult] = useState<RunPayload | null>(null);
   const [running, setRunning] = useState(false);
   const selected = SCENARIOS[scenario];
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initial = params.get("message");
+    if (initial) setMessage(initial.slice(0, 280));
+
     let cancelled = false;
     fetch("/api/demo/status", { cache: "no-store" })
       .then((res) => res.json())
@@ -55,21 +76,27 @@ export function LiveDemoV2() {
 
   const gates = useMemo(() => {
     if (result?.gates?.length) {
-      return result.gates.map((item) => ({ name: item.name || item.gate || "gate", pass: item.pass ?? item.outcome === "pass", reason: item.reason }));
+      return result.gates.map((item) => ({
+        name: item.name || item.gate || "gate",
+        pass: item.pass ?? item.outcome === "pass",
+        reason: item.reason
+      }));
     }
-    const failGate = scenario === "cross-region" ? "region" : scenario === "deployment-event" ? "intent" : "data";
-    return ["identity", "intent", "schema", "region", "data", "idempotency"].map((name) => ({ name, pass: mode === "allow" || name !== failGate }));
-  }, [result, scenario, mode]);
+    return ["identity", "intent", "schema", "region", "data", "idempotency"].map((name) => ({
+      name,
+      pass: mode === "allow" || name !== "data"
+    }));
+  }, [result, mode]);
 
   async function runDemo() {
-    if (!selected.live || running) return;
+    if (running) return;
     setRunning(true);
     setResult(null);
     try {
       const response = await fetch("/api/demo/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scenario, mode })
+        body: JSON.stringify({ scenario, mode, message })
       });
       const payload = await response.json();
       setResult(payload);
@@ -91,11 +118,11 @@ export function LiveDemoV2() {
 
       <section className="border-b rule">
         <div className="mx-auto max-w-[1240px] px-5 py-14 sm:px-8 sm:py-20">
-          <p className="kicker mono text-[color:var(--brand)]">Real sender → broker → receiver</p>
+          <p className="kicker mono text-[color:var(--brand)]">Sender → contract → broker → receiver</p>
           <div className="mt-5 grid gap-10 lg:grid-cols-[1fr_.7fr] lg:items-end">
             <div>
-              <h1 className="max-w-[47rem] text-4xl font-semibold tracking-[-.045em] sm:text-6xl">See the decision before delivery.</h1>
-              <p className="mt-5 max-w-[45rem] text-base leading-7 text-[color:var(--muted)] sm:text-lg">Choose a broker-backed communication path, send a compliant message or deliberate violation, and inspect the contract decision and receiver outcome.</p>
+              <h1 className="max-w-[49rem] text-4xl font-semibold tracking-[-.045em] sm:text-6xl">Send a message. See what Pigeon decides.</h1>
+              <p className="mt-5 max-w-[47rem] text-base leading-7 text-[color:var(--muted)] sm:text-lg">The public demo runs a sender, negotiates a communication contract, publishes through the broker, then checks the receiver and audit evidence.</p>
             </div>
             <ServiceHealth status={status} />
           </div>
@@ -103,57 +130,73 @@ export function LiveDemoV2() {
       </section>
 
       <section className="border-b rule">
-        <div className="mx-auto grid max-w-[1240px] gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[.78fr_1.22fr]">
-          <div>
-            <p className="kicker mono text-[color:var(--muted)]">01 · communication path</p>
+        <div className="mx-auto grid max-w-[1240px] gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[.72fr_1.28fr]">
+          <aside>
+            <p className="kicker mono text-[color:var(--muted)]">01 · Choose a live path</p>
             <div className="mt-5 grid gap-2">
               {(Object.keys(SCENARIOS) as ScenarioKey[]).map((key) => {
                 const item = SCENARIOS[key];
                 return (
-                  <button key={key} onClick={() => setScenario(key)} className={`w-full border p-4 text-left transition-colors ${scenario === key ? "border-[color:var(--ink)] bg-[color:var(--paper-soft)]" : "border-[color:var(--line)] hover:border-[color:var(--line-strong)]"}`}>
-                    <div className="flex items-center justify-between gap-4"><span className="text-sm font-medium">{item.label}</span><span className={`mono text-[10px] uppercase tracking-[.12em] ${item.live ? "text-[color:var(--allow)]" : "text-[color:var(--muted)]"}`}>{item.live ? "live" : "next"}</span></div>
+                  <button key={key} type="button" onClick={() => setScenario(key)} className={`w-full border p-4 text-left ${scenario === key ? "border-[color:var(--ink)] bg-[color:var(--paper-soft)]" : "border-[color:var(--line)] hover:border-[color:var(--line-strong)]"}`}>
+                    <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">{item.label}</span><span className="mono text-[10px] text-[color:var(--allow)]">LIVE</span></div>
                     <span className="mt-1 block mono text-xs text-[color:var(--muted)]">{item.subject}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
+
+            <div className="mt-7 border border-[color:var(--line)] p-4">
+              <p className="mono text-xs text-[color:var(--muted)]">TRANSPORT</p>
+              <div className="mt-3 grid gap-2 mono text-xs">
+                <StatusRow label="website → sender" value="HTTPS" />
+                <StatusRow label="sender → broker" value="HTTPS" />
+                <StatusRow label="broker → receiver" value="HTTPS" />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[color:var(--muted)]">Transport security is provided by the deployed HTTPS services; message policy remains a broker concern.</p>
+            </div>
+          </aside>
 
           <div>
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div><p className="kicker mono text-[color:var(--muted)]">02 · contract test</p><h2 className="mt-2 text-2xl font-semibold tracking-[-.03em]">{selected.label}</h2></div>
-              <div className="flex border border-[color:var(--line-strong)] text-sm"><button onClick={() => setMode("allow")} className={`px-4 py-2.5 ${mode === "allow" ? "bg-[color:var(--ink)] text-[color:var(--paper)]" : ""}`}>Allowed</button><button onClick={() => setMode("violation")} className={`border-l rule px-4 py-2.5 ${mode === "violation" ? "bg-[color:var(--ink)] text-[color:var(--paper)]" : ""}`}>Violation</button></div>
+            <div>
+              <p className="kicker mono text-[color:var(--muted)]">02 · Message + contract test</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-.03em]">{selected.label}</h2>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{selected.description}</p>
             </div>
 
-            <div className="mt-6 contract-card bg-[color:var(--paper-soft)]">
-              <div className="grid gap-5 border-b rule p-5 sm:grid-cols-3">
-                <Info label="SUBJECT" value={selected.subject} mono />
-                <Info label="CONTRACT PROVES" value={selected.proof} />
-                <Info label="MESSAGE TEST" value={mode === "allow" ? "compliant message" : selected.violation} />
+            {scenario === "message" && (
+              <div className="mt-6">
+                <label className="mono text-xs text-[color:var(--muted)]" htmlFor="message">MESSAGE DATA</label>
+                <textarea id="message" value={message} onChange={(event) => setMessage(event.target.value.slice(0, 280))} className="mt-2 min-h-28 w-full resize-none border border-[color:var(--line-strong)] bg-[color:var(--paper-soft)] p-4 outline-none focus:border-[color:var(--ink)]" />
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-y rule py-4">
+              <div className="flex border border-[color:var(--line-strong)] text-sm">
+                <button type="button" onClick={() => setMode("allow")} className={`px-4 py-2.5 ${mode === "allow" ? "bg-[color:var(--ink)] text-[color:var(--paper)]" : ""}`}>Compliant</button>
+                <button type="button" onClick={() => setMode("violation")} className={`border-l rule px-4 py-2.5 ${mode === "violation" ? "bg-[color:var(--ink)] text-[color:var(--paper)]" : ""}`}>Policy violation</button>
+              </div>
+              <button type="button" onClick={runDemo} disabled={running} className="inline-flex items-center gap-2 border-b border-[color:var(--ink)] pb-1 text-sm font-medium disabled:opacity-45">
+                {running ? "Running…" : "Send through Pigeon"} {!running && <ArrowRight size={14} />}
+              </button>
+            </div>
+
+            <div className="mt-6 border border-[color:var(--line-strong)] bg-[color:var(--paper-soft)]">
+              <div className="grid gap-px bg-[color:var(--line)] sm:grid-cols-4">
+                <Stage label="01 PRINCIPAL" value={scenario === "message" ? "demo-producer" : scenario === "notifications" ? "orders-api" : "checkout-api"} />
+                <Stage label="02 CONTRACT" value={result?.contract?.id || "negotiated at run"} />
+                <Stage label="03 SUBJECT" value={selected.subject} />
+                <Stage label="04 DECISION" value={result?.decision ? String(result.decision).toUpperCase() : "broker evaluates"} />
               </div>
 
               <div className="p-5">
-                <div className="service-flow" aria-label="sender to broker to receiver">
-                  <FlowNode label="sender" meta="publisher principal" />
-                  <span className="flow-arrow">→</span>
-                  <FlowNode label="contract" meta={selected.subject} />
-                  <span className="flow-arrow">→</span>
-                  <FlowNode label="broker" meta="admission + append" />
-                  <span className="flow-arrow">→</span>
-                  <FlowNode label="receiver" meta="delivery proof" />
-                </div>
-
-                <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-2 border-y rule py-4 mono text-xs sm:grid-cols-3">
-                  {gates.map((gate) => <div key={gate.name} className="flex items-center justify-between gap-2"><span className="text-[color:var(--muted)]">{gate.name}</span>{gate.pass ? <Check size={14} className="text-[color:var(--allow)]" /> : <X size={14} className="text-[color:var(--deny)]" />}</div>)}
-                </div>
-
-                {!selected.live && <div className="mt-5 border border-[color:var(--line)] bg-[color:var(--paper)] p-4 text-sm leading-6 text-[color:var(--muted)]">This path demonstrates Pigeon&apos;s intended contract model but is not wired to a live broker subject yet. It cannot be executed from the public demo.</div>}
-
-                <div className="mt-6 flex flex-wrap items-center gap-4">
-                  <button onClick={runDemo} disabled={!selected.live || running} className="inline-flex h-11 items-center gap-2 bg-[color:var(--ink)] px-5 text-sm font-medium text-[color:var(--paper)] disabled:cursor-not-allowed disabled:opacity-35">
-                    {running ? "Running…" : selected.live ? "Run live message" : "Live scenario coming next"} {!running && selected.live && <ArrowRight size={15} />}
-                  </button>
-                  {selected.live && <span className="mono text-xs text-[color:var(--muted)]">server-side orchestration · no browser credentials</span>}
+                <p className="mono text-xs text-[color:var(--muted)]">ADMISSION</p>
+                <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-2 border-y rule py-4 mono text-xs sm:grid-cols-3">
+                  {gates.map((gate) => (
+                    <div key={gate.name} className="flex items-center justify-between gap-2">
+                      <span className="text-[color:var(--muted)]">{gate.name}</span>
+                      {gate.pass ? <Check size={14} className="text-[color:var(--allow)]" /> : <X size={14} className="text-[color:var(--deny)]" />}
+                    </div>
+                  ))}
                 </div>
 
                 {result && <ResultPanel result={result} />}
@@ -163,15 +206,33 @@ export function LiveDemoV2() {
         </div>
       </section>
 
+      <section className="border-b rule">
+        <div className="mx-auto max-w-[1240px] px-5 py-12 sm:px-8">
+          <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr]">
+            <div>
+              <p className="kicker mono text-[color:var(--brand)]">Performance</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-.035em]">Separate broker work from network time.</h2>
+              <p className="mt-4 text-sm leading-7 text-[color:var(--muted)]">Each run exposes sender contract and publish timings, receiver timing, and total hosted latency. The repository benchmark separately measures enforcement overhead on the broker path.</p>
+            </div>
+            <div className="grid gap-px border border-[color:var(--line)] bg-[color:var(--line)] sm:grid-cols-4">
+              <Metric label="benchmark" value="50k runs" />
+              <Metric label="latency unit" value="µs/op" />
+              <Metric label="throughput" value="ops/s" />
+              <Metric label="scope" value="governance" />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section>
         <div className="mx-auto max-w-[1240px] px-5 py-12 sm:px-8">
-          <p className="kicker mono text-[color:var(--muted)]">Deployment topology</p>
+          <p className="kicker mono text-[color:var(--muted)]">Public demo services</p>
           <div className="mt-6 grid border border-[color:var(--line)] md:grid-cols-3">
             {([
-              ["sender", "Publisher service", "Negotiates a publishing contract and submits only predefined demo messages."],
+              ["sender", "Publisher", "Negotiates a publishing contract and submits the selected message."],
               ["broker", "Pigeon broker", "Owns contract state, admission decisions, append, audit and quarantine."],
-              ["receiver", "Consumer service", "Negotiates its own receive contract and proves whether delivery happened."]
-            ] as const).map(([name,title,copy],i)=><a key={name} href={SERVICE_LINKS[name]} target="_blank" rel="noreferrer" className={`p-6 transition-colors hover:bg-[color:var(--paper-soft)] ${i ? "border-t md:border-l md:border-t-0 rule" : ""}`}><span className="mono text-xs text-[color:var(--brand)]">{name}.pigeonmq.cc</span><h3 className="mt-4 text-lg font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{copy}</p></a>)}
+              ["receiver", "Consumer", "Negotiates a receive contract and proves whether delivery occurred."]
+            ] as const).map(([name,title,copy],i)=><a key={name} href={SERVICE_LINKS[name]} target="_blank" rel="noreferrer" className={`p-6 hover:bg-[color:var(--paper-soft)] ${i ? "border-t md:border-l md:border-t-0 rule" : ""}`}><span className="mono text-xs text-[color:var(--brand)]">{name}.pigeonmq.cc</span><h3 className="mt-4 text-lg font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{copy}</p></a>)}
           </div>
         </div>
       </section>
@@ -180,19 +241,60 @@ export function LiveDemoV2() {
 }
 
 function ServiceHealth({ status }: { status: StatusPayload | null }) {
-  return <div className="border border-[color:var(--line)] bg-[color:var(--paper-soft)] p-4"><div className="flex items-center justify-between"><p className="mono text-xs text-[color:var(--muted)]">SERVICE HEALTH</p><span className={`mono text-[10px] uppercase tracking-[.12em] ${status?.ok ? "text-[color:var(--allow)]" : "text-[color:var(--muted)]"}`}>{status === null ? "checking" : status.ok ? "ready" : "partial"}</span></div><div className="mt-3 grid grid-cols-3 gap-2">{(["sender","broker","receiver"] as const).map((name)=>{const service=status?.services?.[name];return <a key={name} href={SERVICE_LINKS[name]} target="_blank" rel="noreferrer" className="border rule p-3 text-xs hover:bg-[color:var(--paper)]"><span className="block uppercase text-[color:var(--muted)]">{name}</span><span className={`mt-2 block mono ${service?.ok ? "text-[color:var(--allow)]" : "text-[color:var(--quarantine)]"}`}>{status===null ? "CHECK" : service?.ok ? `ONLINE${service.latencyMs ? ` · ${service.latencyMs}ms` : ""}` : "OFFLINE"}</span></a>})}</div></div>;
+  return <div className="border border-[color:var(--line)] bg-[color:var(--paper-soft)] p-4"><div className="flex items-center justify-between"><p className="mono text-xs text-[color:var(--muted)]">SERVICE HEALTH</p><span className={`mono text-[10px] ${status?.ok ? "text-[color:var(--allow)]" : "text-[color:var(--muted)]"}`}>{status === null ? "CHECKING" : status.ok ? "READY" : "PARTIAL"}</span></div><div className="mt-3 grid grid-cols-3 gap-2">{(["sender","broker","receiver"] as const).map((name)=>{const service=status?.services?.[name];return <a key={name} href={SERVICE_LINKS[name]} target="_blank" rel="noreferrer" className="border rule p-3 text-xs hover:bg-[color:var(--paper)]"><span className="block uppercase text-[color:var(--muted)]">{name}</span><span className={`mt-2 block mono ${service?.ok ? "text-[color:var(--allow)]" : "text-[color:var(--quarantine)]"}`}>{status===null ? "CHECK" : service?.ok ? `ONLINE${service.latencyMs !== undefined ? ` · ${service.latencyMs}ms` : ""}` : "OFFLINE"}</span></a>})}</div></div>;
 }
 
-function FlowNode({ label, meta }: { label: string; meta: string }) {
-  return <div className="min-w-0 flex-1 border border-[color:var(--line)] bg-[color:var(--paper)] p-3"><span className="mono text-[10px] uppercase tracking-[.12em] text-[color:var(--brand)]">{label}</span><span className="mt-1 block truncate text-xs text-[color:var(--muted)]">{meta}</span></div>;
+function Stage({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0 bg-[color:var(--paper-soft)] p-4"><span className="mono text-[10px] text-[color:var(--muted)]">{label}</span><strong className="mt-2 block truncate mono text-xs font-medium">{value}</strong></div>;
 }
 
-function Info({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return <div><span className="block text-[10px] uppercase tracking-[.11em] text-[color:var(--muted)]">{label}</span><span className={`mt-1.5 block text-sm ${mono ? "mono" : ""}`}>{value}</span></div>;
+function StatusRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-center justify-between border-b rule pb-2"><span className="text-[color:var(--muted)]">{label}</span><span className="text-[color:var(--allow)]">{value}</span></div>;
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return <div className="bg-[color:var(--paper)] p-4"><span className="mono text-[10px] text-[color:var(--muted)]">{label}</span><strong className="mt-2 block text-lg font-semibold">{value}</strong></div>;
+}
+
+function Timing({ label, value }: { label: string; value?: number }) {
+  return <div className="border-b rule pb-2"><span className="block mono text-[10px] text-[color:var(--muted)]">{label}</span><strong className="mt-1 block mono text-sm font-medium">{value === undefined ? "—" : `${value} ms`}</strong></div>;
 }
 
 function ResultPanel({ result }: { result: RunPayload }) {
-  if (!result.live) return <div className="mt-6 border-t rule pt-5"><p className="mono text-xs text-[color:var(--quarantine)]">LIVE BACKEND NOT READY</p><p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{result.error || "The public backend is not connected yet."}</p></div>;
+  if (!result.live) {
+    return <div className="mt-5"><p className="mono text-xs text-[color:var(--quarantine)]">BACKEND NOT READY</p><p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{result.error || "The public backend is not connected yet."}</p></div>;
+  }
+
   const allow = String(result.decision).toLowerCase().includes("allow");
-  return <div className="mt-6 border-t rule pt-5"><div className="flex flex-wrap items-center justify-between gap-3"><span className="mono text-xs text-[color:var(--muted)]">RUN {result.runId}</span><span className={`mono text-sm font-semibold ${allow ? "text-[color:var(--allow)]" : "text-[color:var(--quarantine)]"}`}>{String(result.decision || "DECIDED").toUpperCase()}</span></div><div className="mt-3 grid gap-2 text-sm text-[color:var(--muted)] sm:grid-cols-2"><span>Elapsed: {result.elapsedMs ?? "—"} ms</span><span>Receiver count: {result.receiver?.receivedCount ?? "—"}</span></div></div>;
+  const senderTimings = result.sender?.timings || {};
+  const receiverTimings = result.receiver?.timings || {};
+
+  return (
+    <div className="mt-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="mono text-xs text-[color:var(--muted)]">RUN {result.runId}</span>
+        <span className={`mono text-sm font-semibold ${allow ? "text-[color:var(--allow)]" : "text-[color:var(--quarantine)]"}`}>{String(result.decision || "DECIDED").toUpperCase()}</span>
+      </div>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="border border-[color:var(--line)] bg-[color:var(--paper)] p-4">
+          <p className="mono text-xs text-[color:var(--muted)]">DELIVERY</p>
+          <p className="mt-3 text-sm">receiver count <strong>{result.receiver?.receivedCount ?? 0}</strong></p>
+          <p className="mt-2 text-sm text-[color:var(--muted)]">audit events: {result.audit?.length ?? 0} · quarantine records: {result.quarantine?.length ?? 0}</p>
+          {result.message?.preview && <p className="mt-3 border-t rule pt-3 text-sm leading-6">“{result.message.preview}”</p>}
+        </div>
+        <div className="border border-[color:var(--line)] bg-[color:var(--paper)] p-4">
+          <p className="mono text-xs text-[color:var(--muted)]">LIVE TIMINGS</p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <Timing label="contract" value={senderTimings.contractMs} />
+            <Timing label="publish" value={senderTimings.publishMs} />
+            <Timing label="receive" value={receiverTimings.receiveMs} />
+            <Timing label="end-to-end" value={result.elapsedMs} />
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-xs leading-5 text-[color:var(--muted)]">Hosted latency includes service and network time. Broker benchmark figures are reported separately so they are not conflated with end-to-end latency.</p>
+    </div>
+  );
 }
