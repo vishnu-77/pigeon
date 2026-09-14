@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pigeonmq"
+version = "0.1.0"
+description = "Python client for the Pigeon contract-native message broker"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "vishnu-77" }]
+keywords = ["messaging", "broker", "communication-contracts", "governance"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/vishnu-77/pigeon"
+Repository = "https://github.com/vishnu-77/pigeon"
+Issues = "https://github.com/vishnu-77/pigeon/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pigeonmq"]
