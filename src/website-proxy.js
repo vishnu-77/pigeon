@@ -27,6 +27,12 @@ export async function proxyDemo(request, urls = defaults) {
       if (new TextEncoder().encode(content).length > 8192) return json({ error: { code: "PAYLOAD_TOO_LARGE", message: "The demo accepts small sample messages only." } }, 413);
       try { body = content ? JSON.parse(content) : {}; } catch { return json({ error: { code: "BAD_REQUEST", message: "Invalid JSON." } }, 400); }
     }
+    if (path.startsWith("/v1/")) {
+      if (!["GET", "POST"].includes(request.method)) return json({ error: { code: "METHOD_NOT_ALLOWED", message: "Use GET or POST." } }, 405);
+      const headers = { "content-type": "application/json" };
+      for (const name of ["authorization", "x-pigeon-region", "x-pigeon-contract"]) { const value = request.headers.get(name); if (value) headers[name] = value; }
+      return relay(await fetch(urls.broker + path + url.search, { method: request.method, headers, body: request.method === "POST" ? JSON.stringify(body ?? {}) : undefined, signal: AbortSignal.timeout(12000), cache: "no-store" }));
+    }
     if (path === "/demo/sessions" && request.method === "POST") {
       return relay(await fetch(urls.broker + path, { method: "POST", headers: { "content-type": "application/json" }, body: "{}", signal: AbortSignal.timeout(12000) }));
     }

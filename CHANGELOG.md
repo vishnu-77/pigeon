@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-14
+
+This section also collects the entries that shipped in 1.0.0 to 1.0.2 but were never
+moved out of Unreleased at the time.
+
 ### Added
+- OpenTelemetry decision metrics and spans for publish, receive, replay and ack
+  ([ADR-0007](docs/adr/0007-opentelemetry-observability-exception.md)).
+- Python and Rust Pigeon Protocol v1 clients with broker integration and conformance
+  tests in CI; SDK versions are synchronised with the broker release.
+- First-party JavaScript client exported from the package root
+  (`import { PigeonClient } from "pigeonmq"`), with `ack()`; `sdk/typescript` re-exports it.
+- Signed federation authority primitives and the federation-native authority model
+  ([ADR-0008](docs/adr/0008-federation-native-authority.md)).
+- Reproducible enforcement benchmark run in CI; a public demo subject registered on broker startup.
+- Release pipeline publishing to npm, PyPI/TestPyPI and crates.io through trusted publishing.
 - PigeonMQ landing page with a real, isolated four-scenario message demo and mobile layout.
 - Brand mark: the origami pigeon logo traced to a 2 KB SVG (`examples/pigeon-mark.svg`) and used
   for the landing page header, hero, broker stop, footer, favicon, touch icon and social image.
@@ -37,6 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - This changelog.
 
 ### Changed
+- The broker ships without a presentation UI: `/` returns machine-readable service metadata
+  and `/docs` is no longer served by the broker. The website serves the landing page and the
+  API reference (with a `/v1` passthrough for its Try-it controls).
 - Custom store adapters must implement `recordDelivery(subject, id, delivery)` and
   `recordAck(subject, id, acknowledgement)` so delivery state can be persisted.
 - Region enforcement is applied once (via subject `regionPolicy`), not doubled.
@@ -81,5 +99,6 @@ messaging.
   simulation (`docker compose up --build`).
 - CI across Node 22 and 24 with a demo smoke test.
 
-[Unreleased]: https://github.com/vishnu-77/pigeon/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vishnu-77/pigeon/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/vishnu-77/pigeon/compare/v0.1.0...v1.1.0
 [0.1.0]: https://github.com/vishnu-77/pigeon/releases/tag/v0.1.0
