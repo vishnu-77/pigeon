@@ -1,6 +1,7 @@
 export { AuditLog } from "./audit.js";
 export { Authenticator } from "./auth.js";
 export { PigeonBroker } from "./broker.js";
+export { PigeonClient, PigeonClientError } from "./client.js";
 export { compileSubject, candidateRules } from "./compile.js";
 export { ContractRegistry } from "./contracts.js";
 export { PigeonError, isPigeonError } from "./errors.js";
