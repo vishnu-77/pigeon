@@ -49,6 +49,9 @@
     "build:banner": "node scripts/build-banner.js",
     "bench": "node --preserve-symlinks --preserve-symlinks-main scripts/bench-enforcement.mjs",
     "version:next": "node scripts/next-version.mjs",
+    "version:sync": "node scripts/sync-sdk-versions.mjs",
+    "version:check": "node scripts/sync-sdk-versions.mjs --check",
+    "version": "node scripts/sync-sdk-versions.mjs",
     "test": "node --preserve-symlinks --preserve-symlinks-main --test"
   },
   "engines": {
