@@ -52,7 +52,7 @@
     "version:next": "node scripts/next-version.mjs",
     "version:sync": "node scripts/sync-sdk-versions.mjs",
     "version:check": "node scripts/sync-sdk-versions.mjs --check",
-    "version": "node scripts/sync-sdk-versions.mjs",
+    "version": "node scripts/sync-sdk-versions.mjs && git add sdk/python/pyproject.toml sdk/rust/Cargo.toml",
     "test": "node --preserve-symlinks --preserve-symlinks-main --test"
   },
   "engines": {
