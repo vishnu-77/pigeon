@@ -47,7 +47,7 @@
     <section class="demo-section container" id="try-it" aria-labelledby="demo-title">
       <div class="section-heading"><div><p class="eyebrow">LESS READING. MORE SENDING.</p><h2 id="demo-title">See what gets through.</h2><p>Send a sample payment message. Then change one thing.</p></div><span class="connection" id="connection" role="status"><span class="tiny-dot"></span> Connecting to broker</span></div>
       <div class="demo-card">
-        <div class="demo-toolbar"><span class="demo-name"><span class="mini-envelope"></span> The checkout example</span><span class="sample-label">Live broker · sample data</span><button class="reset-button" id="reset-demo" type="button">↺ Start fresh</button></div>
+        <div class="demo-toolbar"><span class="demo-name"><span class="mini-envelope"></span> The checkout example</span><span class="services" id="services" aria-label="Live services"></span><button class="reset-button" id="reset-demo" type="button">↺ Start fresh</button></div>
         <div class="demo-workspace">
           <div class="sender-panel">
             <span class="step-label">01 / SENDER</span>
@@ -61,15 +61,17 @@
             <div class="journey-heading"><span class="step-label">02 / THE JOURNEY</span><span class="run-label" id="run-label">Your own isolated demo</span></div>
             <div class="route" id="message-route" aria-label="Message journey">
               <div class="route-stop" id="route-sender"><span class="route-icon" aria-hidden="true">↗</span><b>Sender</b><small id="route-sender-state">Ready to send</small></div>
-              <div class="route-connector" aria-hidden="true"><span></span></div>
+              <div class="route-connector" aria-hidden="true"><span class="packet"></span></div>
               <div class="route-stop broker-stop" id="route-broker"><span class="route-icon broker-icon" aria-hidden="true"><svg viewBox="0 0 535 413" focusable="false"><use href="#pigeon-mark"/></svg></span><b>PigeonMQ</b><small id="route-broker-state">Policy at the door</small></div>
-              <div class="route-connector" aria-hidden="true"><span></span></div>
+              <div class="route-connector" aria-hidden="true"><span class="packet"></span></div>
               <div class="route-stop" id="route-receiver"><span class="route-icon" aria-hidden="true">↙</span><b>Receiver</b><small id="route-receiver-state">Waiting for a message</small></div>
             </div>
+            <ol class="traffic" id="traffic" aria-label="Live HTTP traffic for this run"></ol>
+            <div class="receipt" id="receipt" hidden><div class="receipt-head"><span>WHAT THE RECEIVER GOT</span><span id="receipt-via"></span></div><dl id="receipt-fields"></dl></div>
             <div class="outcome" id="outcome" data-state="idle" role="status" aria-live="polite" aria-atomic="true"><span class="outcome-symbol" id="outcome-symbol" aria-hidden="true">↗</span><div><p class="outcome-kicker" id="outcome-kicker">03 / THE OUTCOME</p><h3 id="outcome-title">Your first message is ready.</h3><p id="outcome-description">Press send to watch PigeonMQ check the policy, deliver the message, and record the receiver’s acknowledgement.</p></div></div>
             <div class="result-meta" id="result-meta" hidden><span id="result-id"></span><button type="button" class="copy-button" id="copy-message" aria-label="Copy message ID">Copy ID</button><span id="result-time"></span></div>
             <details class="evidence" id="evidence"><summary>Look under the hood <span>Payload, policy & actual responses</span></summary><div class="evidence-inner"><div class="evidence-tabs" role="tablist" aria-label="Demo evidence"><button id="tab-payload" role="tab" aria-selected="true" aria-controls="evidence-content" data-evidence="payload">Payload</button><button id="tab-policy" role="tab" aria-selected="false" aria-controls="evidence-content" tabindex="-1" data-evidence="policy">Policy</button><button id="tab-response" role="tab" aria-selected="false" aria-controls="evidence-content" tabindex="-1" data-evidence="response">Response</button><button id="tab-audit" role="tab" aria-selected="false" aria-controls="evidence-content" tabindex="-1" data-evidence="audit">Audit</button></div><pre id="evidence-content" role="tabpanel" aria-labelledby="tab-payload" tabindex="0"></pre></div></details>
-            <p class="demo-footnote">Real broker execution. Synthetic payment data. No payment is charged.</p>
+            <p class="demo-footnote">Every line above is a real HTTP request between the sender service, the broker and the receiver service. Synthetic payment data; nothing is charged.</p>
           </div>
         </div>
       </div>
