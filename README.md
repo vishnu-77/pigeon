@@ -1,191 +1,288 @@
-# Pigeon
+<div align="center">
 
-<p align="center">
-  <img src="assets/pigeon-banner.svg" width="100%" alt="Pigeon - governed communication">
-</p>
+<img src="https://raw.githubusercontent.com/vishnu-77/pigeon/main/assets/pigeon-banner.svg" alt="Pigeon" width="100%">
 
-[![npm](https://img.shields.io/npm/v/pigeonmq.svg)](https://www.npmjs.com/package/pigeonmq)
-[![CI](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml/badge.svg)](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](.nvmrc)
+### Pigeon: contract-native messaging
 
-## Overview
+**Every message runs under a communication contract.**
 
-Pigeon is a policy-compiled messaging broker for governed asynchronous communication. It
-introduces **runtime communication contracts**: subject policies are compiled into
-lightweight session contracts at connect time, and every message is checked against that
-contract before routing, delivery, replay, quarantine, or audit. A subject policy declares
-who may send a message, who may receive it, which schema applies, whether idempotency and
-replay are allowed, whether audit is required, and whether the message is allowed, denied,
-or quarantined.
+<a href="https://www.npmjs.com/package/pigeonmq">npm</a> · <a href="https://github.com/vishnu-77/pigeon/tree/main/sdk/python">Python SDK</a> · <a href="https://github.com/vishnu-77/pigeon/tree/main/sdk/rust">Rust SDK</a> · <a href="https://github.com/vishnu-77/pigeon/tree/website">Website source</a> · <a href="https://github.com/vishnu-77/pigeon/issues">Issues</a>
 
-> **Status:** early-stage and experimental. The broker model and the policy-compiled
-> messaging path work and are tested, but this is not production-ready (see
-> [Status](#status)).
+[![npm](https://img.shields.io/npm/v/pigeonmq.svg?style=flat-square&labelColor=171512&color=A64B36)](https://www.npmjs.com/package/pigeonmq)
+[![CI](https://img.shields.io/github/actions/workflow/status/vishnu-77/pigeon/ci.yml?branch=main&style=flat-square&labelColor=171512&label=CI)](https://github.com/vishnu-77/pigeon/actions/workflows/ci.yml)
+[![Node](https://img.shields.io/badge/Node-22%20%7C%2024-F7F3EA?style=flat-square&labelColor=171512)](package.json)
+[![Python SDK](https://img.shields.io/badge/Python-SDK-F7F3EA?style=flat-square&labelColor=171512)](sdk/python/)
+[![Rust SDK](https://img.shields.io/badge/Rust-SDK-F7F3EA?style=flat-square&labelColor=171512)](sdk/rust/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-white?style=flat-square&labelColor=171512)](LICENSE)
 
-## Architecture
+</div>
+
+---
+
+## What is Pigeon?
+
+Pigeon is a **contract-native message broker**. A service authenticates, negotiates what it may communicate, and then publishes or receives messages inside that short-lived runtime contract.
+
+The contract binds an authenticated principal to permitted subjects and operations. Every message is then checked for identity, intent, schema, region, classification, sensitive data and idempotency **before it is routed or delivered**.
 
 ```text
-Subject Policy
-    ↓   compiled once, at connect time
-Session Contract     (bound to an authenticated principal)
-    ↓   every message runs under it
-Message
-    ↓
-Broker Decision
-    ↓
-Allow / Deny / Quarantine / Audit
+principal
+    │
+    │ negotiate
+    ▼
+communication contract
+    │
+    │ message
+    ▼
+identity → intent → schema → region → data → idempotency
+                                              │
+                         ┌────────────────────┼────────────────────┐
+                         ▼                    ▼                    ▼
+                       ALLOW                 DENY             QUARANTINE
 ```
 
-A client authenticates and negotiates a contract for the subjects it needs; the broker
-compiles the relevant policy into that contract (subject, schema, and policy IDs, granted
-operations, expiry). Every publish, receive, replay, and ack is validated against the
-contract - identity, operation, schema, region, classification, idempotency - before the
-message is routed, stored, or delivered. Denied messages are audited and, where configured,
-quarantined as evidence. Because policy is compiled once per session, enforcement is a fast
-table lookup, not a re-parse per message.
+Pigeon is early-stage infrastructure and research software. The broker path works and is tested; it is not yet a production replacement for a distributed Kafka/NATS/RabbitMQ deployment.
 
-Inside the broker, an accepted message passes an ordered chain of gates:
+## Why Pigeon?
 
-```mermaid
-flowchart LR
-  Sender["SENDER<br/>checkout-api"]
-  Receiver["RECEIVER<br/>gateway-adapter"]
-  subgraph Broker["Pigeon Broker - admission gates"]
-    direction TB
-    G1["identity"] --> G2["intent"] --> G3["schema"] --> G4["region"] --> G5["sensitivity"] --> G6["idempotency"] --> G7["append"] --> G8["audit"]
-  end
-  Policy[("Policy Engine")]
-  Schema[("Schema Registry")]
-  Audit[("Immutable Audit Log")]
-  Quarantine[("Quarantine Store")]
-  Sender -- "publish (under contract)" --> Broker
-  Broker -- "deliver (authorized only)" --> Receiver
-  Broker -. "denied / violating" .-> Quarantine
-  G1 -.-> Policy
-  G3 -.-> Schema
-  G8 -.-> Audit
-```
+- **Messages carry intent.** Topic permission tells you where a producer may publish, not why this particular communication should happen.
+- **Communication is contextual.** An authorised publisher can still violate schema, residency, classification or data constraints.
+- **Authority can expire.** Pigeon compiles permitted communication into session-scoped contracts instead of assuming indefinite publishing authority.
+- **Violations become evidence.** Invalid communication can be denied or quarantined and recorded in the audit chain before a receiver processes it.
 
-More diagrams (admission, retry, delivery, quarantine, replay) are in [docs/flows.md](docs/flows.md).
+The research question behind Pigeon is simple: **can communication authority become a runtime primitive of the broker rather than an external policy check?**
 
-## Quickstart
+## Quick start
 
-Requires **Node.js ≥ 22**. Zero runtime dependencies.
+Requires Node.js 22 or newer.
 
 ```bash
-npm install pigeonmq                                  # use as a library
-# or run the repo directly:
-git clone https://github.com/vishnu-77/pigeon.git && cd pigeon
-npm test          # 62 tests across broker, contracts, store, HTTP, SDK
-npm run demo      # narrated sender → broker → receiver walkthrough
-npm start         # HTTP broker + live dashboard on http://localhost:8787
+npm install pigeonmq
+npx pigeon broker start
 ```
 
-`npm run demo` prints the governed flow with each gate visible:
-
-```text
-1. Governed payment authorization
-   SENDER   ──▶ BROKER   publish authorize_payment (order_456)
-     ✓ identity ✓ intent ✓ schema ✓ region ✓ sensitive ✓ idempotency
-   ACCEPTED msg_… · seq 1
-3. Unauthorized producer is denied at contract negotiation
-   ATTACKER ──▶ BROKER   NO_PERMITTED_SUBJECTS - no contract is ever issued
-4. Raw card PAN is denied and quarantined as evidence
-   DENIED SENSITIVE_FIELD_DENIED · QUARANTINED envelope held as evidence
-```
-
-`npm start` also serves a live **Acme Checkout dashboard** at `/` (watch messages flow and
-the audit trail stream live) and a versioned **API reference with "Try it"** at `/docs`.
-
-## Usage
-
-In-process (Node):
+In another terminal:
 
 ```js
-import { PigeonBroker, registerDemoSubjects } from "pigeonmq";
+import { PigeonClient } from "pigeonmq";
 
-const broker = registerDemoSubjects(new PigeonBroker());
+const pigeon = new PigeonClient({
+  url: "http://localhost:8787",
+  token: "checkout-token"
+});
 
-// Negotiate a session contract, then publish under it.
-const checkout = broker.connect(
-  { principal: { id: "spiffe://merchant-prod/ns/checkout/sa/checkout-api" }, region: "uk" },
-  { subjects: ["payments.authorize"] }
+await pigeon.connect(["payments.authorize"]);
+
+const result = await pigeon.request(
+  "payments.authorize",
+  {
+    merchantId: "m",
+    orderId: "order_42",
+    amount: 42.5,
+    currency: "GBP",
+    paymentToken: "tok"
+  },
+  {
+    intent: "authorize_payment",
+    idempotencyKey: "order_42:authorize",
+    classification: "pci",
+    region: "uk"
+  }
 );
-checkout.request("payments.authorize",
-  { merchantId: "m", orderId: "o1", amount: 42.5, currency: "GBP", paymentToken: "tok" },
-  { intent: "authorize_payment", idempotencyKey: "o1:auth", classification: "pci", region: "uk" });
+
+console.log(result.status); // accepted
 ```
 
-Over HTTP (any language) - authenticate, negotiate a contract, publish under it:
+Or see the governed flow without writing code:
 
 ```bash
-# 1. negotiate → { "contract": { "id": "contract_1", ... } }
-curl -X POST localhost:8787/v1/contracts \
-  -H "authorization: Bearer checkout-token" -d '{ "subjects": ["payments.authorize"] }'
-
-# 2. publish under the contract
-curl -X POST localhost:8787/v1/messages \
-  -H "authorization: Bearer checkout-token" -H "x-pigeon-contract: contract_1" \
-  -d '{ "subject":"payments.authorize","type":"t","source":"checkout","intent":"authorize_payment",
-        "idempotencyKey":"o1:auth","classification":"pci","region":"uk",
-        "data":{"merchantId":"m","orderId":"o1","amount":42.5,"currency":"GBP","paymentToken":"tok"} }'
+npm run demo
 ```
 
-A [TypeScript SDK](sdk/typescript/README.md) wraps auth + contract negotiation.
+## Use Pigeon from your stack
 
-## Example policy
+The broker exposes **Pigeon Protocol v1 over HTTP**. Official clients share the same contract negotiation and error semantics.
 
-Subjects are authored as data - JSON files under [`policies/`](policies/) (or JS objects).
-A trimmed `payments.authorize`:
+| Runtime | Client | Current distribution |
+|---|---|---|
+| Node.js / TypeScript | `PigeonClient` exported from `pigeonmq` | npm |
+| Python 3.10+ | [`sdk/python`](sdk/python/) | in-tree; PyPI manifest ready |
+| Rust stable | [`sdk/rust`](sdk/rust/) | in-tree; crates.io manifest ready |
+| Any language | HTTP API | native protocol |
 
-```json
-{
-  "name": "payments.authorize",
-  "mode": "requestReply",
-  "intents": ["authorize_payment"],
-  "schema": { "name": "payment.authorization.v1" },
-  "regionPolicy": { "allowedRegions": ["uk", "eu"] },
-  "delivery": { "idempotency": { "required": true } },
-  "data": { "classification": "pci", "forbiddenFields": ["card.pan"] },
-  "quarantine": { "onSchemaViolation": true, "onPolicyViolation": true },
-  "policy": {
-    "publish": [{ "effect": "allow", "principals": ["spiffe://merchant-prod/ns/checkout/sa/checkout-api"] }],
-    "receive": [{ "effect": "allow", "principals": ["spiffe://merchant-prod/ns/payments/sa/gateway-adapter"] }]
-  }
-}
+Python and Rust registry publication will follow conformance validation; the repository clients are already tested against a real broker in CI.
+
+## See the contract fail
+
+A successful message is useful. A blocked one explains why Pigeon exists.
+
+```text
+checkout-api
+    │
+    ▼
+CTR_0182
+payments.authorize
+intent = authorize_payment
+region = uk
+data = pci
+    │
+    ▼
+MSG_1049
+
+identity        ✓
+intent          ✓
+schema          ✓
+region          ✓
+data             ✕  card.pan is forbidden
+
+          QUARANTINED
+
+receiver never receives MSG_1049
 ```
 
-Lint a policy directory with `pigeon policy lint policies`. See
-[ADR-0003](docs/adr/0003-json-policy-language-over-cedar-rego.md) for why policy is
-structured data rather than a rule language.
+The repository demo includes authorised communication, duplicate suppression, unauthorised producers and sensitive-field quarantine.
 
-## Status
+## How it works
 
-Pigeon is **early-stage and experimental**. The runtime, the policy-compiled contract path,
-and the single-node broker all work and are tested (62 tests, CI on Node 22 & 24, CodeQL +
-secret scanning). It is **not production-ready**: authentication uses static demo bearer
-tokens (real deployments need mTLS/SPIFFE/JWT), and session contracts are in-memory and
-single-node. See [docs/progress.md](docs/progress.md) for the full shipped / in-flight /
-next-up breakdown.
+### 1. Negotiate
 
-## Documentation
+An authenticated principal asks for the subjects it needs. Pigeon evaluates subject policy once and compiles the permitted subset into a runtime session contract.
 
-- **Architecture:** [docs/mvp-architecture.md](docs/mvp-architecture.md) · flows: [docs/flows.md](docs/flows.md)
-- **Session contracts:** [ADR-0006](docs/adr/0006-session-contracts.md) · all decisions: [docs/adr/](docs/adr/)
-- **Policy & use cases:** [docs/use-cases.md](docs/use-cases.md) · example policies: [`policies/`](policies/)
-- **Status:** [docs/progress.md](docs/progress.md)
-- **Containers:** [docs/local-container-simulation.md](docs/local-container-simulation.md) · **SDK:** [sdk/typescript/](sdk/typescript/README.md)
-- **Security:** [SECURITY.md](SECURITY.md)
+```text
+authenticated principal + requested subjects + policy
+                         ↓
+              communication contract
+```
 
-## Contributing
+### 2. Communicate
 
-Contributions are welcome - see [CONTRIBUTING.md](CONTRIBUTING.md) for development setup,
-project layout, and how to add a subject. Significant technical decisions are recorded as
-[Architecture Decision Records](docs/adr/). Please read the
-[Code of Conduct](CODE_OF_CONDUCT.md); report security issues via
-[SECURITY.md](SECURITY.md) rather than opening a public issue.
+Every publish, receive, replay and acknowledgement executes under that contract. Identity is resolved server-side and never trusted from a message field.
+
+### 3. Enforce
+
+Accepted messages pass an ordered gate chain:
+
+```text
+identity → intent → schema → region → sensitivity → idempotency → append → audit
+```
+
+### 4. Decide
+
+The broker can **allow**, **deny** or **quarantine** before routing. Audit evidence records the resulting decision.
+
+## Communication contracts
+
+A contract captures the authority negotiated for one authenticated principal and session, including:
+
+- subject and policy identity
+- allowed operations
+- schema binding
+- expiry
+- principal binding
+
+The contract narrows communication authority; it does not let the client invent identity or permissions.
+
+## Pigeon Protocol v1
+
+Pigeon intentionally keeps the broker and client ecosystems separate. The Node broker is the canonical implementation today; Python and Rust are clients of the same HTTP protocol rather than separate broker implementations.
+
+Core protocol objects:
+
+```text
+Principal
+CommunicationContract
+MessageEnvelope
+Decision
+QuarantineRecord
+AuditEvent
+```
+
+See [`docs/mvp-architecture.md`](docs/mvp-architecture.md), [`docs/flows.md`](docs/flows.md) and the ADRs under [`docs/adr/`](docs/adr/) for the current model.
+
+## CLI
+
+| Command | Purpose |
+|---|---|
+| `pigeon demo` | Run the governed in-process walkthrough |
+| `pigeon broker start` | Start the HTTP broker |
+| `pigeon policy lint [dir]` | Lint a policy catalog |
+| `pigeon publish <subject> ...` | Negotiate a contract and publish over HTTP |
+| `pigeon quarantine` | Inspect quarantined communication |
+
+## Research
+
+Pigeon explores **runtime communication contracts for governed asynchronous systems**.
+
+Current questions include:
+
+1. Can policy be compiled outside the per-message hot path while preserving contextual enforcement?
+2. Can message authority include intent, region and data classification without becoming an unbounded policy language?
+3. Can rejected communication become reproducible audit evidence rather than merely an application error?
+4. What is the enforcement overhead of contract-native messaging?
+5. How should contracts be revoked, replicated and reconciled in a distributed broker?
+
+Run the current enforcement benchmark with:
+
+```bash
+npm run bench
+```
+
+## Current status
+
+**Shipped now**
+
+- policy-compiled session contracts
+- server-side identity binding
+- publish / receive / replay / ack
+- identity, intent, region, classification, sensitive-field and schema gates
+- idempotency and duplicate suppression
+- rate limiting
+- quarantine
+- hash-chained audit log
+- append-only single-node durable store
+- HTTP API and CLI
+- JavaScript, Python and Rust clients
+- cross-language integration CI
+- enforcement benchmark
+
+**Accepted current limits**
+
+- single-node broker/storage model
+- static demo bearer credentials; production identity needs mTLS/SPIFFE/JWT
+- session contracts are in-memory and single-node
+- no streaming consumer leases yet
+- no Kafka/NATS/RabbitMQ/SQS-SNS bridges yet
+
+See [`docs/progress.md`](docs/progress.md) for the detailed roadmap and accepted MVP boundaries.
+
+## Architecture roadmap
+
+```text
+Phase 0   formal model + working broker          ← current
+Phase 1   single-node broker + streaming consumers
+Phase 2   Kubernetes control plane
+Phase 3   distributed broker
+Phase 4   Kafka / NATS / RabbitMQ / SQS-SNS bridges
+```
+
+## Website
+
+The broker intentionally ships **without a presentation UI**. The `website` branch contains the public Developer / Researcher landing experience and deterministic replay used to explain the model. This keeps product storytelling out of the broker runtime.
+
+## Community & contributing
+
+- **Issues and ideas:** [GitHub Issues](https://github.com/vishnu-77/pigeon/issues)
+- **Development:** see [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Security reports:** see [SECURITY.md](SECURITY.md)
+
+```bash
+git clone https://github.com/vishnu-77/pigeon.git
+cd pigeon
+npm ci
+npm test
+npm run demo
+```
 
 ## License
 
-Licensed under the [Apache License 2.0](LICENSE).
+Pigeon is released under the [Apache License 2.0](LICENSE).
