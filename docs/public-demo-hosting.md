@@ -12,6 +12,21 @@ The public Pigeon demo is intentionally split so the website can remain a presen
 | `receiver.pigeonmq.cc` | Vercel | `main:demo/vercel-receiver` | Stateless consumer/evidence service |
 | `broker.pigeonmq.cc` | persistent container host | `main` + `Dockerfile` + `fly.toml` | Pigeon broker and durable demo state |
 
+## DNS
+
+For externally managed DNS, use the current Vercel targets for the website/sender/receiver hosts and the persistent broker host for `broker`:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| `A` | `@` | `76.76.21.21` |
+| `CNAME` | `www` | `cname.vercel-dns-0.com` |
+| `CNAME` | `demo` | `cname.vercel-dns-0.com` |
+| `CNAME` | `sender` | `cname.vercel-dns-0.com` |
+| `CNAME` | `receiver` | `cname.vercel-dns-0.com` |
+| `CNAME` | `broker` | `pigeonmq-demo-broker.fly.dev` |
+
+Only create the broker CNAME after the Fly app is deployed and `https://pigeonmq-demo-broker.fly.dev/health` returns successfully. If the Fly app name changes, use the hostname Fly actually assigns.
+
 ## Why the broker is not an ordinary Vercel function
 
 Contracts, messages, delivery cursors, audit and quarantine are shared state. The demo broker therefore runs as one persistent container with `/data` mounted. `PIGEON_DATA_DIR=/data` activates Pigeon's `FileStore` and durable audit log.
