@@ -1,6 +1,6 @@
 {
   "name": "pigeonmq",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Contract-native message broker: negotiate runtime communication contracts and enforce them before messages are routed.",
   "type": "module",
   "main": "src/index.js",
