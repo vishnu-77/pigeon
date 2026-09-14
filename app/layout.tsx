@@ -5,11 +5,21 @@ export const metadata: Metadata = {
   title: "Pigeon — contract-native messaging",
   description:
     "Pigeon is a contract-native message broker. Every message runs under a runtime communication contract before it is routed.",
-  metadataBase: new URL("https://github.com/vishnu-77/pigeon"),
+  metadataBase: new URL("https://pigeonmq.cc"),
+  alternates: {
+    canonical: "/"
+  },
   openGraph: {
     title: "Pigeon — contract-native messaging",
     description: "Every message runs under a communication contract.",
+    url: "https://pigeonmq.cc",
+    siteName: "Pigeon",
     type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pigeon — contract-native messaging",
+    description: "Every message runs under a communication contract."
   }
 };
 
