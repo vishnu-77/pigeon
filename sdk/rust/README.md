@@ -2,13 +2,20 @@
 
 Official Rust client for the Pigeon contract-native message broker.
 
-> Registry publication is prepared but not yet part of the main release workflow. Until a crates.io release is cut, use the in-repository crate.
+> crates.io Trusted Publishing is wired into `.github/workflows/release.yml`. Until the first registry release is cut, use the in-repository crate.
 
 ```toml
 [dependencies]
 pigeonmq = { path = "sdk/rust" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 serde_json = "1"
+```
+
+After the first crates.io release:
+
+```toml
+[dependencies]
+pigeonmq = "1"
 ```
 
 ```rust
