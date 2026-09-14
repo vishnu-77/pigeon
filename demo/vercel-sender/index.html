@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pigeon demo sender</title>
+  <style>
+    :root{--paper:#f4f1e8;--ink:#171512;--muted:#68645b;--line:#d7d0c3;--brand:#a64b36;--ok:#4f715b}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}main{max-width:880px;margin:0 auto;padding:64px 24px}.k{color:var(--brand);font-size:12px;text-transform:uppercase;letter-spacing:.12em}h1{font:600 42px/1.05 system-ui,sans-serif;letter-spacing:-.04em;margin:18px 0}p{color:var(--muted);max-width:680px}.grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-top:36px}.cell{padding:20px;border-right:1px solid var(--line)}.cell:last-child{border-right:0}.v{display:block;margin-top:10px;color:var(--ok)}a{color:inherit}.box{margin-top:28px;border:1px solid var(--line);padding:20px;background:#faf8f2}@media(max-width:700px){.grid{grid-template-columns:1fr}.cell{border-right:0;border-bottom:1px solid var(--line)}.cell:last-child{border-bottom:0}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="k">Pigeon public demo · backend surface</div>
+  <h1>Sender service</h1>
+  <p>This service acts as the publishing principal for the public Pigeon demo. It negotiates a communication contract with the broker and publishes only predefined demo scenarios. It does not accept arbitrary subjects, credentials or payloads.</p>
+  <div class="grid">
+    <div class="cell"><span>ROLE</span><span class="v">PUBLISHER</span></div>
+    <div class="cell"><span>PROTOCOL</span><span class="v">PIGEON V1</span></div>
+    <div class="cell"><span>HEALTH</span><span class="v"><a href="/api/health">/api/health</a></span></div>
+  </div>
+  <div class="box">
+    <strong>Live scenarios</strong>
+    <p>payments.authorize · notifications.send</p>
+    <p><a href="https://demo.pigeonmq.cc">← Return to the interactive demo</a></p>
+  </div>
+</main>
+</body>
+</html>
