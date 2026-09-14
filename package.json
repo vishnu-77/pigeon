@@ -1,7 +1,7 @@
 {
   "name": "pigeonmq",
   "version": "1.0.2",
-  "description": "Policy-compiled messaging broker for governed async communication: subject policies compile into runtime session contracts enforced on every message.",
+  "description": "Contract-native message broker: negotiate runtime communication contracts and enforce them before messages are routed.",
   "type": "module",
   "main": "src/index.js",
   "bin": {
@@ -10,6 +10,8 @@
   "keywords": [
     "messaging",
     "broker",
+    "contract-native",
+    "communication-contracts",
     "policy-compiled",
     "session-contracts",
     "governance",
@@ -30,8 +32,9 @@
   },
   "files": [
     "src",
-    "examples/dashboard.html",
-    "examples/docs.html",
+    "sdk/typescript",
+    "examples/*.js",
+    "policies",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
