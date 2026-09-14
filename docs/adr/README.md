@@ -45,3 +45,4 @@ the old one and update the old one's status - never rewrite history.
 | [0005](0005-semver-tag-driven-releases.md) | SemVer, tag-driven releases | Accepted |
 | [0006](0006-session-contracts.md) | Policy-compiled session contracts | Accepted |
 | [0007](0007-opentelemetry-observability-exception.md) | OpenTelemetry as a scoped exception to the dependency-free rule | Accepted |
+| [0008](0008-federation-native-authority.md) | Federation-native communication authority | Proposed |
