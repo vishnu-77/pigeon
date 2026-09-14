@@ -66,8 +66,12 @@ Before publishing:
 1. verify the `pigeonmq` crate name is available or controlled by this project;
 2. require `cargo fmt --check` and `cargo test` against the real broker;
 3. run `cargo package` and inspect included files;
-4. configure the crates.io publishing credential as a GitHub Actions secret/environment;
-5. publish a first tagged SDK release;
+4. publish the first version manually with a crates.io API token (`cargo login`, then
+   `cargo publish --manifest-path sdk/rust/Cargo.toml` at the release tag): crates.io only
+   lets you configure Trusted Publishing on a crate that already exists;
+5. on crates.io, open the crate's Settings > Trusted Publishing and add GitHub repository
+   `vishnu-77/pigeon` with workflow `release.yml`; later tags then publish without a token,
+   and the release job skips versions that already exist;
 6. only then advertise `cargo add pigeonmq` as live.
 
 Development use today can point Cargo at `sdk/rust` from a checkout.
