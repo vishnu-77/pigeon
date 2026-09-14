@@ -1,60 +1,25 @@
 {
-  "name": "pigeonmq",
-  "version": "1.0.2",
-  "description": "Policy-compiled messaging broker for governed async communication: subject policies compile into runtime session contracts enforced on every message.",
-  "type": "module",
-  "main": "src/index.js",
-  "bin": {
-    "pigeon": "src/cli.js"
-  },
-  "keywords": [
-    "messaging",
-    "broker",
-    "policy-compiled",
-    "session-contracts",
-    "governance",
-    "async",
-    "audit",
-    "quarantine",
-    "idempotency",
-    "schema-validation"
-  ],
-  "author": "vishnu-77",
-  "homepage": "https://github.com/vishnu-77/pigeon#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/vishnu-77/pigeon.git"
-  },
-  "bugs": {
-    "url": "https://github.com/vishnu-77/pigeon/issues"
-  },
-  "files": [
-    "src",
-    "examples/dashboard.html",
-    "examples/docs.html",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE",
-    "NOTICE"
-  ],
+  "name": "pigeon-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Developer and researcher landing page for Pigeon, the contract-native message broker",
   "scripts": {
-    "demo": "node --preserve-symlinks --preserve-symlinks-main examples/walkthrough.js",
-    "demo:json": "node --preserve-symlinks --preserve-symlinks-main examples/payment-demo.js",
-    "simulate:sender": "node --preserve-symlinks --preserve-symlinks-main examples/container-sender.js",
-    "simulate:receiver": "node --preserve-symlinks --preserve-symlinks-main examples/container-receiver.js",
-    "start": "node --preserve-symlinks --preserve-symlinks-main src/server.js",
-    "build:banner": "node scripts/build-banner.js",
-    "bench": "node --preserve-symlinks --preserve-symlinks-main scripts/bench-enforcement.mjs",
-    "version:next": "node scripts/next-version.mjs",
-    "test": "node --preserve-symlinks --preserve-symlinks-main --test"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx serve out"
   },
-  "engines": {
-    "node": ">=22"
-  },
-  "license": "Apache-2.0",
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/sdk-metrics": "^2.10.0",
-    "@opentelemetry/sdk-trace-base": "^2.10.0"
+    "lucide-react": "1.45.0",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.5.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
   }
 }
