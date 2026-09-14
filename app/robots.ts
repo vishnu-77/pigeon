@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/"
     },
-    sitemap: "https://pigeonmq.cc/sitemap.xml",
-    host: "https://pigeonmq.cc"
+    sitemap: "https://www.pigeonmq.cc/sitemap.xml",
+    host: "https://www.pigeonmq.cc"
   };
 }
