@@ -29,6 +29,10 @@ test("SDK runs the payment demo end to end", async () => {
   await gateway.connect(["payments.authorize"]);
   const messages = await gateway.receive("payments.authorize", { max: 10 });
   assert.ok(messages.length >= 1);
+  const ack = await gateway.ack("payments.authorize", result.message.id);
+  assert.equal(ack.status, "acked");
+  assert.equal(ack.message.ackedBy[0].principal, gateway.contract.principal);
+  assert.ok((await gateway.audit()).some((r) => r.type === "delivery.acked" && r.messageId === result.message.id));
 });
 
 test("SDK surfaces the denial path as a typed error", async () => {

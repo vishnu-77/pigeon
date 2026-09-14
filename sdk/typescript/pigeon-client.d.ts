@@ -57,6 +57,8 @@ export class PigeonClient {
   publish(message: Record<string, unknown>): Promise<PublishResult>;
   request(subject: string, data: unknown, options?: RequestOptions): Promise<PublishResult>;
   receive(subject: string, options?: { max?: number }): Promise<Array<Record<string, unknown>>>;
+  ack(subject: string, messageId: string): Promise<{ status: "acked"; message: Record<string, unknown> }>;
+  audit(): Promise<Array<Record<string, unknown>>>;
   subjects(): Promise<Array<Record<string, unknown>>>;
   quarantine(): Promise<Array<Record<string, unknown>>>;
 }

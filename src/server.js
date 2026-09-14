@@ -7,12 +7,19 @@ import { AuditLog } from "./audit.js";
 import { FileStore } from "./file-store.js";
 import { createDemoBroker, registerDemoSubjects } from "./subjects.js";
 import { isPigeonError, PigeonError } from "./errors.js";
+import { DemoSessions } from "./demo-sessions.js";
 
 const MAX_BODY_BYTES = 1_048_576; // 1 MiB
 
 const EXAMPLES = join(dirname(fileURLToPath(import.meta.url)), "..", "examples");
 const DASHBOARD = readFileSync(join(EXAMPLES, "dashboard.html"), "utf8");
 const DOCS = readFileSync(join(EXAMPLES, "docs.html"), "utf8");
+const LANDING_ASSETS = new Map([
+  ["/assets/landing.css", { type: "text/css; charset=utf-8", body: readFileSync(join(EXAMPLES, "landing.css")) }],
+  ["/assets/landing.js", { type: "text/javascript; charset=utf-8", body: readFileSync(join(EXAMPLES, "landing.js")) }],
+  ["/assets/pigeon-mark.svg", { type: "image/svg+xml; charset=utf-8", body: readFileSync(join(EXAMPLES, "pigeon-mark.svg")) }]
+]);
+const DEMO_ROUTES = new Set(["/v1/contracts", "/v1/messages", "/v1/subjects", "/v1/audit", "/v1/quarantine"]);
 
 // Route table. Path patterns are matched first; a path match with the wrong
 // method yields 405 instead of falling through to 404.
@@ -26,15 +33,47 @@ const routes = [
   { method: "POST", pattern: /^\/v1\/contracts$/, handler: negotiateContract },
   { method: "POST", pattern: /^\/v1\/messages$/, handler: publishMessage },
   { method: "POST", pattern: /^\/v1\/subjects\/([^/]+)\/receive$/, handler: receiveMessages },
+  { method: "POST", pattern: /^\/v1\/subjects\/([^/]+)\/messages\/([^/]+)\/ack$/, handler: acknowledgeMessage },
   { method: "GET", pattern: /^\/v1\/audit$/, handler: listAudit },
   { method: "GET", pattern: /^\/v1\/quarantine$/, handler: listQuarantine },
   { method: "POST", pattern: /^\/v1\/quarantine\/([^/]+)\/release$/, handler: releaseQuarantine }
 ];
 
-export function createPigeonServer(broker = createDemoBroker(PigeonBroker)) {
-  return http.createServer(async (request, response) => {
+export function createPigeonServer(broker = createDemoBroker(PigeonBroker), { demoSessions = new DemoSessions() } = {}) {
+  const cleanup = setInterval(() => demoSessions.sweep(), 60_000);
+  cleanup.unref();
+  const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
+      if (LANDING_ASSETS.has(url.pathname)) {
+        if (request.method !== "GET") return send(response, 405, errorBody("METHOD_NOT_ALLOWED", "Use GET."));
+        const asset = LANDING_ASSETS.get(url.pathname);
+        response.writeHead(200, { "content-type": asset.type, "x-content-type-options": "nosniff" });
+        return response.end(asset.body);
+      }
+      if (url.pathname === "/demo/sessions") {
+        request.pigeonBodyLimit = 8192;
+        if (request.method !== "POST") return send(response, 405, errorBody("METHOD_NOT_ALLOWED", "Use POST."));
+        await readJson(request);
+        response.setHeader("cache-control", "no-store");
+        return send(response, 201, { session: demoSessions.create() });
+      }
+      let activeBroker = broker;
+      const demo = /^\/demo\/sessions\/([a-f0-9-]{36})(\/.*)?$/.exec(url.pathname);
+      if (demo) {
+        request.pigeonBodyLimit = 8192;
+        response.setHeader("cache-control", "no-store");
+        if (!demo[2] && request.method === "DELETE") {
+          demoSessions.remove(demo[1]);
+          return send(response, 200, { deleted: true });
+        }
+        const path = demo[2] ?? "";
+        if (!DEMO_ROUTES.has(path) && !/^\/v1\/subjects\/payments\.authorize(?:\/receive|\/messages\/[^/]+\/ack)?$/.test(path)) {
+          return send(response, 404, errorBody("NOT_FOUND", "Demo route not found."));
+        }
+        activeBroker = demoSessions.get(demo[1]);
+        url.pathname = path;
+      }
       const pathMatched = routes.filter((route) => route.pattern.test(url.pathname));
 
       if (pathMatched.length === 0) {
@@ -49,7 +88,7 @@ export function createPigeonServer(broker = createDemoBroker(PigeonBroker)) {
       }
 
       const params = url.pathname.match(route.pattern).slice(1).map(decodeURIComponent);
-      await route.handler({ request, response, url, broker, params });
+      await route.handler({ request, response, url, broker: activeBroker, params });
     } catch (error) {
       const status = isPigeonError(error) ? statusFor(error.code) : 500;
       send(response, status, {
@@ -61,6 +100,8 @@ export function createPigeonServer(broker = createDemoBroker(PigeonBroker)) {
       });
     }
   });
+  server.on("close", () => clearInterval(cleanup));
+  return server;
 }
 
 function dashboard({ response }) {
@@ -118,6 +159,14 @@ async function releaseQuarantine({ request, response, broker, params }) {
   send(response, 202, result);
 }
 
+async function acknowledgeMessage({ request, response, broker, params }) {
+  const body = await readJson(request);
+  const context = contextFromAuth(request, broker);
+  if (body.contractId) context.contractId = body.contractId;
+  const message = broker.ack(params[0], params[1], context);
+  send(response, 200, { status: "acked", message });
+}
+
 function listAudit({ response, broker }) {
   send(response, 200, { records: broker.listAudit() });
 }
@@ -172,6 +221,8 @@ function statusFor(code) {
     SCHEMA_NOT_FOUND: 500,
     SUBJECT_NOT_FOUND: 404,
     MESSAGE_NOT_FOUND: 404,
+    MESSAGE_NOT_DELIVERED: 409,
+    DEMO_EXPIRED: 410,
     QUARANTINE_NOT_FOUND: 404,
     BAD_REQUEST: 400,
     PAYLOAD_TOO_LARGE: 413,
@@ -192,12 +243,13 @@ function send(response, status, body) {
 }
 
 async function readJson(request) {
+  const maxBytes = request.pigeonBodyLimit ?? MAX_BODY_BYTES;
   const chunks = [];
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
-      throw new PigeonError("PAYLOAD_TOO_LARGE", `Request body exceeds ${MAX_BODY_BYTES} bytes.`);
+    if (size > maxBytes) {
+      throw new PigeonError("PAYLOAD_TOO_LARGE", `Request body exceeds ${maxBytes} bytes.`);
     }
     chunks.push(chunk);
   }

@@ -28,3 +28,6 @@ jobs:
 
       - name: Run demo (smoke test)
         run: npm run demo
+
+      - name: Run network demo (smoke test)
+        run: npm run demo:network

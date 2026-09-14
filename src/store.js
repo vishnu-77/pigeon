@@ -13,6 +13,8 @@ import { PigeonError } from "./errors.js";
  *   appendMessage(subject, message)             -> committed message (with sequence)
  *   listMessages(subject)                       -> message[]
  *   findMessage(subject, id)                    -> message | undefined
+ *   recordDelivery(subject, id, delivery)       -> void
+ *   recordAck(subject, id, acknowledgement)     -> void
  *   getCursor(key)                              -> number
  *   setCursor(key, position)                    -> void
  *   getIdempotent(subject, key, ttlMs?)         -> message | null   (TTL-aware)
@@ -59,6 +61,18 @@ export class MemoryStore {
 
   getCursor(key) {
     return this.cursors.get(key) ?? 0;
+  }
+
+  recordDelivery(subject, id, delivery) {
+    const message = this.findMessage(subject, id);
+    message.deliveries ??= [];
+    message.deliveries.push(delivery);
+  }
+
+  recordAck(subject, id, acknowledgement) {
+    const message = this.findMessage(subject, id);
+    message.ackedBy ??= [];
+    message.ackedBy.push(acknowledgement);
   }
 
   setCursor(key, position) {

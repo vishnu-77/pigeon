@@ -4,16 +4,16 @@
 > what is next. For the *release history* see [CHANGELOG.md](../CHANGELOG.md). Update
 > this file when a milestone lands or the near-term focus shifts.
 
-- **Current version:** `0.1.0` (see [CHANGELOG.md](../CHANGELOG.md))
-- **Phase:** 0 - Formal model (this repo), now with policy-compiled session contracts
-- **Last updated:** 2026-07-14
+- **Package version:** `1.0.2`; demo wiring fixes are deployed to the demo services but not yet released on npm.
+- **Phase:** Working experimental single-node MVP with policy-compiled session contracts.
+- **Last updated:** 2026-09-14
 
 ## Roadmap status
 
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 0 - Formal model | Subject/envelope spec, policy decisions, retry/idempotency/replay, in-memory broker + HTTP API + audit + quarantine | In progress (MVP shipped) |
-| 1 - Single-node broker | Durable storage, gRPC + CloudEvents HTTP, streaming consumers | Not started |
+| 1 - Single-node broker | Durable storage, gRPC + CloudEvents HTTP, streaming consumers | Partial: append-only storage and JSON HTTP API work; streaming and gRPC remain |
 | 2 - K8s control plane | CRDs reconciled into broker runtime config | Not started |
 | 3 - Distributed broker | Partitioned subjects, replicated logs, Raft metadata | Not started |
 | 4 - Compatibility bridges | Kafka / NATS / RabbitMQ / SQS-SNS source & sink | Not started |
@@ -37,8 +37,8 @@
   durable append-only message store, both replayed on restart.
 - HTTP API (`/v1/contracts`, `/v1/messages`, `/v1/subjects`, `/v1/audit`, `/v1/quarantine`,
   quarantine release), `pigeon` CLI (`demo`/`broker start`/`policy lint`/`publish`/
-  `quarantine`), a TypeScript SDK, and a live Acme Checkout dashboard at `/` with an API
-  reference at `/docs`.
+  `quarantine`), a TypeScript SDK, and a PigeonMQ landing page at `/` with an isolated
+  checkout demo and an API reference at `/docs`.
 - Enforcement-overhead benchmark (`npm run bench`).
 - Payment-authorization and work-queue demos; three-container Docker simulation
   (non-root image, healthcheck).
@@ -47,7 +47,27 @@
 
 ## In flight
 
-- Nothing active - the FND-01..15 state-audit backlog is complete.
+Demo wiring fixes (verified locally and deployed to the public demo; npm release pending):
+
+- HTTP and SDK acknowledgement, with authenticated contract enforcement, prior-delivery
+  checks and idempotent retries. Delivery and acknowledgement records survive restart.
+- Sender and receiver use the same SDK and verify the full governed flow, including
+  order-specific duplicate/quarantine evidence and acknowledgement. Missing peers or
+  unexpected responses fail the run; fresh order IDs allow repeated runs.
+- `npm run demo:network` starts an isolated broker and separate sender/receiver processes.
+  The Docker simulation uses the same clients.
+- Landing page explains PigeonMQ, then offers valid send, duplicate retry, forbidden
+  card data and unauthorized sender scenarios. Evidence is disclosed on demand.
+- Visitor sessions expire after five minutes, have bounded capacity and operation counts,
+  and isolate broker state, contracts, consumer cursors, quarantine and audit records.
+- The public website forwards operations through separate Vercel sender and receiver
+  services to the existing Fly broker. Health checks cover all three; errors never
+  fall back to simulated success. API reference Try-it uses bearer authentication
+  and contract negotiation.
+- Verification: 76 automated tests, separate-process network demo, concurrent hosted
+  visitor checks, and browser checks of the four scenarios and a 390px mobile layout.
+- Public landing: https://www.pigeonmq.cc/. See [hosted demo](hosted-demo.md) for
+  service URLs, deployment instructions and the remaining broker DNS cleanup.
 
 ## Next up
 
@@ -70,3 +90,10 @@ These are deliberate and documented; each links to its rationale.
   ([ADR-0004](adr/0004-header-based-identity-for-mvp.md)).
 - Session contracts are in-memory and single-node
   ([ADR-0006](adr/0006-session-contracts.md)).
+- Receive advances a principal's cursor before acknowledgement. Queue leases, automatic
+  redelivery after consumer failure, and exactly-once processing are not implemented.
+- The payment demo proves governed delivery and acknowledgement, not a payment gateway
+  integration or an authorization-result reply. In-process correlation helpers do not
+  constitute a complete HTTP request/reply protocol.
+- Audit, quarantine and catalog read endpoints are open for the local demo. Administrative
+  access control and operational hardening remain before production deployment.

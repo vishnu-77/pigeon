@@ -77,9 +77,10 @@ Requires **Node.js ≥ 22**. Zero runtime dependencies.
 npm install pigeonmq                                  # use as a library
 # or run the repo directly:
 git clone https://github.com/vishnu-77/pigeon.git && cd pigeon
-npm test          # 62 tests across broker, contracts, store, HTTP, SDK
+npm test          # broker, contracts, store, HTTP, SDK and network demo tests
 npm run demo      # narrated sender → broker → receiver walkthrough
-npm start         # HTTP broker + live dashboard on http://localhost:8787
+npm start         # HTTP broker + landing page on http://localhost:8787
+npm run demo:network # isolated HTTP broker + separate sender and receiver; verifies ack
 ```
 
 `npm run demo` prints the governed flow with each gate visible:
@@ -95,8 +96,11 @@ npm start         # HTTP broker + live dashboard on http://localhost:8787
    DENIED SENSITIVE_FIELD_DENIED · QUARANTINED envelope held as evidence
 ```
 
-`npm start` also serves a live **Acme Checkout dashboard** at `/` (watch messages flow and
-the audit trail stream live) and a versioned **API reference with "Try it"** at `/docs`.
+`npm start` serves the **PigeonMQ landing page** at `/`, with an isolated checkout demo
+and expandable policy, response and audit evidence. Send a valid message, retry it,
+add forbidden data or change the sender. The **API reference with "Try it"** is at `/docs`.
+The hosted demo is available at [pigeonmq.cc](https://www.pigeonmq.cc/); see the
+[deployment and verification notes](docs/hosted-demo.md).
 
 ## Usage
 
@@ -163,7 +167,7 @@ structured data rather than a rule language.
 ## Status
 
 Pigeon is **early-stage and experimental**. The runtime, the policy-compiled contract path,
-and the single-node broker all work and are tested (62 tests, CI on Node 22 & 24, CodeQL +
+and the single-node broker all work and are tested (CI on Node 22 & 24, CodeQL +
 secret scanning). It is **not production-ready**: authentication uses static demo bearer
 tokens (real deployments need mTLS/SPIFFE/JWT), and session contracts are in-memory and
 single-node. See [docs/progress.md](docs/progress.md) for the full shipped / in-flight /

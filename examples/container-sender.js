@@ -1,100 +1,54 @@
-const pigeonUrl = process.env.PIGEON_URL ?? "http://localhost:8787";
-const token = process.env.PIGEON_TOKEN ?? "checkout-token";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { PigeonClientError } from "../sdk/typescript/pigeon-client.mjs";
+import { SUBJECT, connect, createClient, until } from "./demo-client.js";
 
 process.on("SIGTERM", () => process.exit(0));
 
-await waitForBroker();
+const client = createClient("checkout-token");
+const contract = await connect(client);
+console.log(`[sender] negotiated contract ${contract.id}`);
 
-// Authenticate + negotiate a session contract before publishing anything (FND-01/02).
-const contractId = await negotiate(["payments.authorize"]);
-console.log(`[sender] negotiated contract ${contractId}`);
-
+// A fresh order per run permits repeat demos against the same durable broker.
+const runId = process.env.DEMO_RUN_ID || randomUUID();
+const orderId = `order_container_${runId}`;
 const message = {
-  subject: "payments.authorize",
+  subject: SUBJECT,
   type: "payment.authorization.requested",
   source: "checkout-service",
   intent: "authorize_payment",
-  idempotencyKey: "order_container_001:authorize",
+  idempotencyKey: `${orderId}:authorize`,
   classification: "pci",
   region: "uk",
   data: {
-    merchantId: "merchant_container",
-    orderId: "order_container_001",
-    amount: 73.25,
-    currency: "GBP",
-    paymentToken: "tok_container_visa"
+    merchantId: "merchant_container", orderId, amount: 73.25,
+    currency: "GBP", paymentToken: "tok_container_visa"
   }
 };
 
-console.log("[sender] publishing payment authorization to Pigeon");
-const accepted = await publish(message);
-console.log("[sender] accepted response");
-console.log(JSON.stringify(accepted, null, 2));
+const accepted = await client.publish(message);
+assert.equal(accepted.status, "accepted", "Use a fresh DEMO_RUN_ID for each run");
+console.log(`[sender] accepted ${accepted.message.id} (${orderId})`);
 
-console.log("[sender] retrying with the same idempotency key");
-const duplicate = await publish(message);
-console.log("[sender] duplicate response");
-console.log(JSON.stringify(duplicate, null, 2));
+const duplicate = await client.publish(message);
+assert.equal(duplicate.status, "duplicate");
+assert.equal(duplicate.message.id, accepted.message.id);
+console.log(`[sender] duplicate returned original ${duplicate.message.id}`);
 
-console.log("[sender] trying to publish raw PAN, expected to be denied and quarantined");
-const denied = await publish({
+await assert.rejects(() => client.publish({
   ...message,
-  idempotencyKey: "order_container_002:authorize",
-  data: {
-    ...message.data,
-    orderId: "order_container_002",
-    card: { pan: "4111111111111111" }
-  }
-}, false);
-console.log(JSON.stringify(denied, null, 2));
+  idempotencyKey: `${orderId}:denied`,
+  data: { ...message.data, card: { pan: "4111111111111111" } }
+}), (error) => error instanceof PigeonClientError &&
+  error.status === 422 && error.code === "SENSITIVE_FIELD_DENIED");
+console.log("[sender] raw PAN denied: SENSITIVE_FIELD_DENIED");
+
+await until(async () => (await client.audit()).some((record) =>
+  record.type === "delivery.acked" && record.messageId === accepted.message.id
+), `receiver acknowledgement of ${accepted.message.id}; start npm run simulate:receiver`);
+console.log(`[sender] complete: receiver acknowledged ${accepted.message.id}`);
 
 if (process.env.SENDER_HOLD_OPEN === "true") {
-  console.log("[sender] holding container open so receiver can finish the simulation");
+  // Compose's one-shot command uses the receiver's exit code to stop the stack.
   setInterval(() => {}, 60_000);
-}
-
-async function negotiate(subjects) {
-  const response = await fetch(`${pigeonUrl}/v1/contracts`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "x-pigeon-region": "uk" },
-    body: JSON.stringify({ subjects })
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(`Negotiate failed: ${response.status} ${JSON.stringify(payload)}`);
-  }
-  return payload.contract.id;
-}
-
-async function publish(body, expectOk = true) {
-  const response = await fetch(`${pigeonUrl}/v1/messages`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-      "x-pigeon-contract": contractId,
-      "x-pigeon-region": "uk"
-    },
-    body: JSON.stringify(body)
-  });
-  const payload = await response.json();
-  if (expectOk && !response.ok) {
-    throw new Error(`Publish failed: ${response.status} ${JSON.stringify(payload)}`);
-  }
-  return payload;
-}
-
-async function waitForBroker() {
-  for (let attempt = 1; attempt <= 30; attempt += 1) {
-    try {
-      const response = await fetch(`${pigeonUrl}/health`);
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // Retry until Docker health and service DNS settle.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-  throw new Error(`Broker did not become healthy at ${pigeonUrl}`);
 }

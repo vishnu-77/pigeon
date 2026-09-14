@@ -70,6 +70,15 @@ export class PigeonClient {
     return (await this.#get("/v1/subjects")).subjects;
   }
 
+  async ack(subject, messageId) {
+    this.#requireContract();
+    return this.#post(`/v1/subjects/${encodeURIComponent(subject)}/messages/${encodeURIComponent(messageId)}/ack`, {}, true);
+  }
+
+  async audit() {
+    return (await this.#get("/v1/audit")).records;
+  }
+
   async quarantine() {
     return (await this.#get("/v1/quarantine")).records;
   }

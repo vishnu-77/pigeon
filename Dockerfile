@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json ./
 COPY src ./src
 COPY examples ./examples
+COPY sdk ./sdk
 COPY docs ./docs
 COPY README.md ./
 
