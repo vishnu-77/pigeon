@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-09-14
+## [1.1.0] - 2026-09-15
 
 This section also collects the entries that shipped in 1.0.0 to 1.0.2 but were never
 moved out of Unreleased at the time.
