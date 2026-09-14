@@ -61,16 +61,20 @@ async function publish(token, cid, body) {
   });
 }
 
-test("serves the Acme Checkout dashboard at /", async () => {
+test("serves machine-readable broker metadata at /", async () => {
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
-  assert.match(await response.text(), /ACME CHECKOUT/);
+  const body = await response.json();
+  assert.equal(body.service, "pigeon");
+  assert.equal(body.protocol, "pigeon.v1");
+  assert.equal(body.contractRequired, true);
+  assert.equal(body.endpoints.contracts, "/v1/contracts");
 });
 
-test("serves the API docs at /docs", async () => {
+test("does not bundle the presentation website into the broker", async () => {
   const response = await fetch(`${base}/docs`);
-  assert.equal(response.status, 200);
-  assert.match(await response.text(), /\/v1\/messages/);
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error.code, "NOT_FOUND");
 });
 
 test("health check responds ok", async () => {
