@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type EncryptedMessage = {
+  algorithm?: string;
+  iv?: string;
+  ciphertext?: string;
+  plaintextBytes?: number;
+};
+
 const SCENARIOS = new Set([
   "message",
   "payments",
@@ -25,6 +32,16 @@ function backendUrl(name: "sender" | "receiver", scenario: string) {
   return process.env.DEMO_RECEIVER_URL || "https://receiver.pigeonmq.cc/api/run";
 }
 
+function validEncryptedMessage(value: EncryptedMessage | undefined) {
+  return Boolean(
+    value &&
+    value.algorithm === "AES-256-GCM" &&
+    typeof value.iv === "string" && /^[A-Za-z0-9_-]{16,32}$/.test(value.iv) &&
+    typeof value.ciphertext === "string" && /^[A-Za-z0-9_-]{16,2048}$/.test(value.ciphertext) &&
+    Number.isSafeInteger(value.plaintextBytes) && Number(value.plaintextBytes) >= 0 && Number(value.plaintextBytes) <= 2048
+  );
+}
+
 async function postJson(url: string, body: unknown) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
@@ -45,7 +62,10 @@ async function postJson(url: string, body: unknown) {
       signal: controller.signal
     });
     const payload = await response.json().catch(() => ({ error: "Backend returned a non-JSON response." }));
-    if (!response.ok) throw new Error(payload?.error || `Demo backend returned ${response.status}.`);
+    if (!response.ok) {
+      const message = typeof payload?.error === "string" ? payload.error : payload?.error?.message;
+      throw new Error(message || `Demo backend returned ${response.status}.`);
+    }
     return payload;
   } finally {
     clearTimeout(timer);
@@ -53,7 +73,7 @@ async function postJson(url: string, body: unknown) {
 }
 
 export async function POST(request: Request) {
-  let input: { scenario?: string; mode?: string; message?: string } = {};
+  let input: { scenario?: string; mode?: string; message?: string; encrypted?: EncryptedMessage } = {};
   try {
     input = await request.json();
   } catch {
@@ -73,12 +93,18 @@ export async function POST(request: Request) {
       { status: 501 }
     );
   }
+  if (scenario === "message" && !validEncryptedMessage(input.encrypted)) {
+    return NextResponse.json({ error: "The free-text demo requires a valid AES-256-GCM encrypted payload." }, { status: 400 });
+  }
 
   const runId = `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const startedAt = Date.now();
 
   try {
-    const sender = await postJson(backendUrl("sender", scenario), { scenario, mode, runId, message });
+    const senderInput = scenario === "message"
+      ? { scenario, mode, runId, encrypted: input.encrypted }
+      : { scenario, mode, runId, message };
+    const sender = await postJson(backendUrl("sender", scenario), senderInput);
     if (sender?.scenario !== scenario || sender?.runId !== runId) {
       return NextResponse.json(
         { live: false, code: "BACKEND_SCENARIO_NOT_DEPLOYED", error: "The sender is not running the current demo backend.", scenario, mode, runId },
@@ -86,7 +112,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const receiver = await postJson(backendUrl("receiver", scenario), { scenario, mode, runId, subject: sender.subject });
+    const receiverInput = scenario === "message"
+      ? { scenario, mode, runId, subject: sender.subject, sessionId: sender.sessionId }
+      : { scenario, mode, runId, subject: sender.subject };
+    const receiver = await postJson(backendUrl("receiver", scenario), receiverInput);
     return NextResponse.json({
       live: true,
       runId,
@@ -99,12 +128,9 @@ export async function POST(request: Request) {
       contract: sender.contract,
       gates: sender.gates,
       message: sender.message,
+      encryption: scenario === "message" ? sender.encryption : undefined,
       audit: receiver.audit ?? [],
-      quarantine: receiver.quarantine ?? [],
-      transport: {
-        sender: backendUrl("sender", scenario).startsWith("https://") ? "https" : "http",
-        receiver: backendUrl("receiver", scenario).startsWith("https://") ? "https" : "http"
-      }
+      quarantine: receiver.quarantine ?? []
     });
   } catch (error) {
     return NextResponse.json(
