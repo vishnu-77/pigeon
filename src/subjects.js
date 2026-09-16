@@ -140,10 +140,13 @@ export const notificationsSendSubject = {
 
 export const demoMessageSchema = {
   type: "object",
-  required: ["demoRunId", "message"],
+  required: ["demoRunId", "algorithm", "iv", "ciphertext", "plaintextBytes"],
   properties: {
     demoRunId: { type: "string" },
-    message: { type: "string" },
+    algorithm: { type: "string", enum: ["AES-256-GCM"] },
+    iv: { type: "string" },
+    ciphertext: { type: "string" },
+    plaintextBytes: { type: "number" },
     restricted: {
       type: "object",
       properties: { secret: { type: "string" } }

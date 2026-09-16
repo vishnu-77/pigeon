@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PigeonBroker } from "./broker.js";
-import { createPaymentBroker } from "./subjects.js";
+import { createPaymentBroker, registerPublicDemoSubject } from "./subjects.js";
 import { PigeonError } from "./errors.js";
 
 // Capability-scoped, disposable demo brokers. They never touch the host broker's
@@ -26,7 +26,8 @@ export class DemoSessions {
     }
     const id = randomUUID();
     const expiresAt = this.now() + this.ttlMs;
-    this.sessions.set(id, { broker: createPaymentBroker(PigeonBroker), expiresAt, operations: 0 });
+    const broker = registerPublicDemoSubject(createPaymentBroker(PigeonBroker));
+    this.sessions.set(id, { broker, expiresAt, operations: 0 });
     return { id, expiresAt: new Date(expiresAt).toISOString(), basePath: `/demo/sessions/${id}` };
   }
 
