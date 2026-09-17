@@ -6,8 +6,8 @@ import { PigeonLogo } from "@/components/PigeonLogo";
 
 type ScenarioKey = "agent-tool-call" | "payments" | "customer-data" | "cross-region" | "deployment-event" | "notifications";
 type Mode = "allow" | "violation";
-type ServiceState = { ok: boolean; latencyMs?: number; status?: number };
-type StatusPayload = { ok: boolean; services?: Record<string, ServiceState> };
+type ServiceState = { ok: boolean; configured?: boolean; latencyMs?: number; status?: number };
+type StatusPayload = { ok: boolean; environment?: string; services?: Record<string, ServiceState> };
 type RunPayload = {
   live?: boolean;
   runId?: string;
@@ -27,6 +27,13 @@ const SCENARIOS: Record<ScenarioKey, { label: string; subject: string; proof: st
   "deployment-event": { label: "CI runner → deploy controller", subject: "deploy.release.request", proof: "environment + intent boundary", violation: "staging-scoped publisher requests production", live: false },
   notifications: { label: "Order service → notifier", subject: "notifications.send", proof: "schema + PII + idempotency", violation: "forbidden recipient data is attached", live: true },
 };
+
+function stateLabel(status: StatusPayload | null, service?: ServiceState) {
+  if (status === null) return "CHECK";
+  if (service?.ok) return "LIVE";
+  if (service?.configured === false) return "UNCONFIGURED";
+  return "OFFLINE";
+}
 
 export function LiveDemoV2() {
   const [scenario, setScenario] = useState<ScenarioKey>("payments");
@@ -77,13 +84,13 @@ export function LiveDemoV2() {
     <div className="min-h-screen bg-bg text-text">
       <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
         <nav className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-5 px-5 sm:px-10">
-          <a href="https://www.pigeonmq.cc" className="flex items-center gap-2.5 rounded" aria-label="Pigeon home">
-            <PigeonLogo size={30} />
-            <span className="text-sm font-semibold tracking-[0.03em] text-ink">PIGEON</span>
+          <a href="/" className="flex items-center gap-2.5 rounded" aria-label="PigeonMQ home">
+            <PigeonLogo size={34} />
+            <span className="text-sm font-semibold tracking-[0.03em] text-ink">PIGEONMQ</span>
           </a>
           <div className="flex items-center gap-3">
             <span className="hidden font-mono text-[0.7rem] uppercase tracking-[0.12em] text-muted sm:inline">Live communication lab</span>
-            <a href="https://www.pigeonmq.cc" className="inline-flex h-9 items-center gap-2 rounded-md border border-line px-3 text-sm text-text transition-colors hover:border-line-strong hover:text-ink">
+            <a href="/" className="inline-flex h-9 items-center gap-2 rounded-md border border-line px-3 text-sm text-text transition-colors hover:border-line-strong hover:text-ink">
               <ArrowLeft size={14} /> Back
             </a>
           </div>
@@ -95,9 +102,9 @@ export function LiveDemoV2() {
           <div className="grid-backdrop pointer-events-none absolute inset-0" aria-hidden="true" />
           <div className="relative mx-auto grid max-w-[1320px] gap-12 px-5 py-16 sm:px-10 sm:py-24 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
             <div className="max-w-[48rem]">
-              <p className="font-mono text-[0.8rem] text-accent">Real sender → broker → receiver</p>
-              <h1 className="mt-5 font-serif text-[2.9rem] leading-[0.98] tracking-[-0.025em] text-ink sm:text-[4.1rem]">See the decision before delivery.</h1>
-              <p className="mt-7 max-w-[45rem] text-[1.06rem] leading-[1.7] text-muted">Choose a broker-backed communication path, send a compliant message or deliberate violation, and inspect the contract decision and receiver outcome.</p>
+              <p className="font-mono text-[0.8rem] text-accent">Sender → contract → broker → receiver</p>
+              <h1 className="mt-5 font-serif text-[2.9rem] leading-[0.98] tracking-[-0.025em] text-ink sm:text-[4.1rem]">See the broker decision before delivery.</h1>
+              <p className="mt-7 max-w-[45rem] text-[1.06rem] leading-[1.7] text-muted">Choose a broker-backed messaging path, run an allowed message or a deliberate violation, and inspect the contract decision and receiver outcome.</p>
             </div>
             <ServiceHealth status={status} />
           </div>
@@ -106,7 +113,7 @@ export function LiveDemoV2() {
         <section className="border-b border-line">
           <div className="mx-auto grid max-w-[1320px] gap-12 px-5 py-16 sm:px-10 sm:py-20 lg:grid-cols-[0.72fr_1.28fr]">
             <div>
-              <p className="font-mono text-[0.76rem] text-muted">01 · communication path</p>
+              <p className="font-mono text-[0.76rem] text-muted">01 · messaging path</p>
               <div className="mt-5 grid gap-2">
                 {(Object.keys(SCENARIOS) as ScenarioKey[]).map((key) => {
                   const item = SCENARIOS[key];
@@ -162,11 +169,11 @@ export function LiveDemoV2() {
                     ))}
                   </div>
 
-                  {!selected.live && <div className="mt-5 rounded-md border border-line bg-bg p-4 text-sm leading-6 text-muted">This path demonstrates Pigeon&apos;s intended contract model but is not wired to a live broker subject yet. It cannot be executed from the public demo.</div>}
+                  {!selected.live && <div className="mt-5 rounded-md border border-line bg-bg p-4 text-sm leading-6 text-muted">This path demonstrates the contract model but is not wired to a broker-backed subject in this demo yet.</div>}
 
                   <div className="mt-6 flex flex-wrap items-center gap-4">
                     <button onClick={runDemo} disabled={!selected.live || running} className="inline-flex h-11 items-center gap-2 rounded-md bg-ink px-5 text-sm font-medium text-bg transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35">
-                      {running ? "Running…" : selected.live ? "Run live message" : "Live scenario coming next"} {!running && selected.live && <ArrowRight size={15} />}
+                      {running ? "Running…" : selected.live ? "Run live message" : "Scenario coming next"} {!running && selected.live && <ArrowRight size={15} />}
                     </button>
                     {selected.live && <span className="font-mono text-xs text-muted">server-side orchestration · no browser credentials</span>}
                   </div>
@@ -180,22 +187,29 @@ export function LiveDemoV2() {
 
         <section>
           <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-10 sm:py-20">
-            <p className="font-mono text-[0.76rem] text-muted">Deployment topology</p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <p className="font-mono text-[0.76rem] text-muted">Deployment topology</p>
+              {status?.environment && <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{status.environment}</span>}
+            </div>
             <div className="mt-6 grid overflow-hidden rounded-lg border border-line md:grid-cols-3">
               {([
-                ["sender", "Publisher service", "Negotiates a publishing contract and submits only predefined demo messages."],
+                ["sender", "Publisher service", "Negotiates a publishing contract and submits predefined demo messages."],
                 ["broker", "Pigeon broker", "Owns contract state, admission decisions, append, audit and quarantine."],
                 ["receiver", "Consumer service", "Negotiates its own receive contract and proves whether delivery happened."],
-              ] as const).map(([name, title, copy], index) => (
-                <article key={name} className={`bg-panel p-6 ${index ? "border-t border-line md:border-l md:border-t-0" : ""}`}>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-xs text-accent">{name}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ok">LIVE</span>
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-ink">{title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-muted">{copy}</p>
-                </article>
-              ))}
+              ] as const).map(([name, title, copy], index) => {
+                const service = status?.services?.[name];
+                const label = stateLabel(status, service);
+                return (
+                  <article key={name} className={`bg-panel p-6 ${index ? "border-t border-line md:border-l md:border-t-0" : ""}`}>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-mono text-xs text-accent">{name}</span>
+                      <span className={`font-mono text-[10px] uppercase tracking-[0.12em] ${service?.ok ? "text-ok" : "text-muted"}`}>{label}</span>
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold text-ink">{title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-muted">{copy}</p>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -217,7 +231,7 @@ function ServiceHealth({ status }: { status: StatusPayload | null }) {
           return (
             <div key={name} className="rounded-md border border-line bg-bg px-3 py-3 text-xs">
               <span className="block uppercase text-muted">{name}</span>
-              <span className={`mt-2 block font-mono ${service?.ok ? "text-ok" : "text-signal"}`}>{status === null ? "CHECK" : service?.ok ? "LIVE" : "OFFLINE"}</span>
+              <span className={`mt-2 block font-mono ${service?.ok ? "text-ok" : "text-signal"}`}>{stateLabel(status, service)}</span>
             </div>
           );
         })}
@@ -236,7 +250,7 @@ function Info({ label, value, mono = false }: { label: string; value: string; mo
 
 function ResultPanel({ result }: { result: RunPayload }) {
   if (!result.live) {
-    return <div className="mt-6 border-t border-line pt-5"><p className="font-mono text-xs text-signal">LIVE BACKEND NOT READY</p><p className="mt-2 text-sm leading-6 text-muted">{result.error || "The public backend is not connected yet."}</p></div>;
+    return <div className="mt-6 border-t border-line pt-5"><p className="font-mono text-xs text-signal">BACKEND NOT READY</p><p className="mt-2 text-sm leading-6 text-muted">{result.error || "The demo backend is not connected in this environment."}</p></div>;
   }
   const allow = String(result.decision).toLowerCase().includes("allow");
   return (
