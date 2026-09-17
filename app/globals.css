@@ -1,66 +1,127 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f4f1e8;
-  --paper-soft: #faf8f2;
-  --panel: #f8f4ec;
-  --ink: #171512;
-  --text: #2a2722;
-  --muted: #6d675e;
-  --line: #d7d0c3;
-  --line-strong: #b9afa0;
-  --brand: #a64b36;
-  --brand-strong: #783628;
-  --allow: #4f715b;
-  --quarantine: #b48231;
-  --deny: #a64b36;
-  --terminal: #171715;
-  --terminal-text: #f4efe6;
+  /* Matte paper + ink system. Navy and coral are taken from the Pigeon mark. */
+  --paper: #F6F2E8;
+  --paper-soft: #FBF8F1;
+  --panel: #FBF8F1;
+  --ink: #171511;
+  --text: #26231E;
+  --muted: #6B6458;
+  --line: #D8D2C6;
+  --line-strong: #BFB6A6;
+  --brand: #0E2B44;
+  --brand-strong: #496881;
+  --signal: #E87972;
+  --allow: #4F715B;
+  --quarantine: #B48231;
+  --deny: #C96361;
+  --terminal: #14171B;
+  --terminal-text: #F5EFE4;
+  --terminal-dim: #8C857A;
+  --grid: rgba(23, 21, 17, 0.05);
+}
+
+@theme inline {
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: var(--font-newsreader), Georgia, Cambria, "Times New Roman", serif;
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
 body {
   margin: 0;
   background: var(--paper);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-button, input { font: inherit; }
+
+h1 {
+  font-family: var(--font-newsreader), Georgia, Cambria, "Times New Roman", serif;
+  font-weight: 500;
+}
+
+button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 a { color: inherit; text-decoration: none; }
-::selection { background: color-mix(in srgb, var(--brand) 24%, transparent); }
-:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+
+::selection {
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+header.sticky {
+  background: color-mix(in srgb, var(--paper) 88%, transparent) !important;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
 
 .site-grid {
   background-image:
-    linear-gradient(rgba(23, 21, 18, .038) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(23, 21, 18, .038) 1px, transparent 1px);
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 72px 72px;
-  mask-image: linear-gradient(to bottom, black, black 66%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 16%, black 72%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, black 16%, black 72%, transparent);
 }
 
-.mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
-.kicker { letter-spacing: .11em; text-transform: uppercase; font-size: .72rem; font-weight: 700; }
-.section-shell { max-width: 1240px; margin: 0 auto; padding: 5.5rem 1.25rem; }
+.mono {
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.kicker {
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.section-shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 5.75rem 1.25rem;
+}
+
 .rule { border-color: var(--line); }
 
 .brand-mark-stage {
   display: grid;
-  width: 92px;
+  width: 116px;
   height: 92px;
   place-items: center;
+  overflow: hidden;
   border: 1px solid var(--line);
+  border-radius: 8px;
   background: var(--paper-soft);
 }
 
-.contract-card {
-  border: 1px solid var(--line-strong);
-  box-shadow: none;
+.brand-mark-stage img {
+  display: block;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
+  object-fit: contain;
 }
+
+.contract-card {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 22px 56px -44px rgba(14, 43, 68, .55);
+}
+
 .flow-step {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
@@ -69,52 +130,154 @@ a { color: inherit; text-decoration: none; }
   padding: 13px 0;
   border-bottom: 1px solid var(--line);
 }
+
 .flow-step:last-of-type { border-bottom: 0; }
+
 .flow-index {
   display: grid;
   width: 28px;
   height: 28px;
   place-items: center;
   border: 1px solid var(--line-strong);
+  border-radius: 4px;
   color: var(--brand);
   font-size: 10px;
 }
+
 .code-panel {
   overflow-x: auto;
   border: 1px solid var(--line-strong);
+  border-radius: 8px;
   background: var(--terminal);
   color: var(--terminal-text);
   padding: 1.25rem;
-  font: 12px/1.8 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font: 12px/1.8 var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  box-shadow: 0 20px 52px -46px rgba(0, 0, 0, .7);
 }
+
 .code-panel pre { margin: 0; min-width: 520px; }
+
 .service-flow {
   display: flex;
   align-items: stretch;
   gap: 8px;
 }
+
 .flow-arrow {
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
 }
 
-/* Motion is interaction-led only. No infinite path animation. */
+/* OpenReflex-style interaction grammar: restrained, fast, and non-glossy. */
 a, button, .contract-card, .brand-mark-stage {
-  transition-property: color, background-color, border-color, opacity, transform;
-  transition-duration: 140ms;
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: 170ms;
   transition-timing-function: ease-out;
 }
 
+main .inline-flex:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+button:active,
+main .inline-flex:active {
+  transform: translateY(0);
+}
+
+/* Below-the-fold sections reveal only after hydration; content remains visible without JS. */
+.motion-ready [data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.motion-ready [data-reveal="visible"] {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 420ms ease-out, transform 420ms ease-out;
+}
+
+@keyframes pigeon-arrive {
+  from { opacity: 0; transform: translate3d(-8px, 5px, 0) scale(.965); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes contract-enter {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes decision-in {
+  from { opacity: 0; transform: scale(.84); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  main > section:first-of-type h1 {
+    animation: hero-rise 500ms 80ms cubic-bezier(.2,.8,.2,1) both;
+  }
+
+  main > section:first-of-type h1 + p {
+    animation: hero-rise 500ms 150ms cubic-bezier(.2,.8,.2,1) both;
+  }
+
+  .brand-mark-stage img {
+    animation: pigeon-arrive 560ms 40ms cubic-bezier(.2,.8,.2,1) both;
+  }
+
+  .contract-card .flow-step {
+    animation: contract-enter 360ms cubic-bezier(.2,.8,.2,1) both;
+  }
+
+  .contract-card .flow-step:nth-of-type(1) { animation-delay: 180ms; }
+  .contract-card .flow-step:nth-of-type(2) { animation-delay: 300ms; }
+  .contract-card .flow-step:nth-of-type(3) { animation-delay: 420ms; }
+
+  .contract-card .flow-step svg,
+  .contract-card .service-flow svg {
+    animation: decision-in 220ms 520ms ease-out both;
+  }
+}
+
 @media (max-width: 720px) {
-  .section-shell { padding-top: 4rem; padding-bottom: 4rem; }
-  .service-flow { display: grid; grid-template-columns: 1fr; }
-  .flow-arrow { transform: rotate(90deg); height: 12px; }
+  .section-shell {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+
+  .brand-mark-stage {
+    width: 104px;
+    height: 82px;
+  }
+
+  .service-flow {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .flow-arrow {
+    transform: rotate(90deg);
+    height: 12px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .motion-ready [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
