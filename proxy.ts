@@ -5,7 +5,7 @@ export function proxy(request: NextRequest) {
   const hostname = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "").split(":")[0].toLowerCase();
   const { pathname } = request.nextUrl;
 
-  if (hostname === "demo.pigeonmq.cc" && pathname === "/") {
+  if ((hostname === "demo.pigeonmq.cc" || hostname === "demo-dev.pigeonmq.cc") && pathname === "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/demo";
     return NextResponse.rewrite(url);
