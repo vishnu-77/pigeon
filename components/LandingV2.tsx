@@ -178,7 +178,7 @@ function ContractReplay({ replay, setReplay }: { replay: Replay; setReplay: (val
         <div className="my-5 grid grid-cols-2 gap-x-6 gap-y-2 border-y rule py-4 mono text-xs sm:grid-cols-3">
           {gates.map((gate) => {
             const pass = !(fail && gate === "data");
-            return <div key={gate} className="flex items-center justify-between gap-2"><span className="text-[color:var(--muted)]">{gate}</span>{gate.pass ? <Check size={14} className="text-[color:var(--allow)]" /> : <X size={14} className="text-[color:var(--deny)]" />}</div>;
+            return <div key={gate} className="flex items-center justify-between gap-2"><span className="text-[color:var(--muted)]">{gate}</span>{pass ? <Check size={14} className="text-[color:var(--allow)]" /> : <X size={14} className="text-[color:var(--deny)]" />}</div>;
           })}
         </div>
         <div className="flex items-center justify-between gap-4"><span className="mono text-xs text-[color:var(--muted)]">broker decision</span><span className={`mono text-xs font-semibold ${fail ? "text-[color:var(--quarantine)]" : "text-[color:var(--allow)]"}`}>{fail ? "QUARANTINE" : "ALLOW"}</span></div>
