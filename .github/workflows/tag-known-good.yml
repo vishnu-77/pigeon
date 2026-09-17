@@ -1,0 +1,29 @@
+name: Tag known-good baseline
+
+on:
+  push:
+    branches:
+      - ops/tag-known-good-2026-09-15
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create immutable known-good tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "known-good-2026-09-15" >/dev/null 2>&1; then
+            echo "Tag already exists"
+            exit 0
+          fi
+          git tag -a "known-good-2026-09-15" "d57664602bcd5d7a50c60c1b20544e3c12f5becf" -m "Known-good PigeonMQ baseline before encrypted demo/UI rework"
+          git push origin "refs/tags/known-good-2026-09-15"
