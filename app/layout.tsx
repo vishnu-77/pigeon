@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/"
   },
+  icons: {
+    icon: "/brand/pigeon-mark.svg",
+    shortcut: "/brand/pigeon-mark.svg",
+    apple: "/brand/pigeon-mark.svg"
+  },
   openGraph: {
     title: "Pigeon — contract-native messaging",
     description: "Every message runs under a communication contract.",
