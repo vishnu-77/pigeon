@@ -1,5 +1,27 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { JetBrains_Mono, Newsreader, Space_Grotesk } from "next/font/google";
+import { SiteMotion } from "@/components/SiteMotion";
 import "./globals.css";
+
+const grotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-grotesk",
+  display: "swap"
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+  display: "swap",
+  preload: false
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-newsreader",
+  display: "swap",
+  preload: false
+});
 
 export const metadata: Metadata = {
   title: "Pigeon — contract-native messaging",
@@ -28,10 +50,18 @@ export const metadata: Metadata = {
   }
 };
 
+export const viewport: Viewport = {
+  themeColor: "#F6F2E8",
+  colorScheme: "light"
+};
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className={`${grotesk.variable} ${jetbrains.variable} ${newsreader.variable}`}>
+      <body className="min-h-screen font-sans">
+        <SiteMotion />
+        {children}
+      </body>
     </html>
   );
 }
