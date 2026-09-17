@@ -83,10 +83,10 @@ export function LandingV2() {
                 Pigeon is a message broker where communication authority is negotiated before delivery. Services, agents and workers authenticate, receive a runtime communication contract, and every message is checked before it reaches a receiver.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a href={DEMO} className="inline-flex h-11 items-center gap-2 bg-[color:var(--ink)] px-5 text-sm font-medium text-[color:var(--paper)]">
+                <a href={DEMO} className="inline-flex h-11 items-center gap-2 rounded-md bg-[color:var(--ink)] px-5 text-sm font-medium text-[color:var(--paper)] transition-transform hover:-translate-y-0.5">
                   Run live demo <ArrowRight size={15} />
                 </a>
-                <a href={view === "researcher" ? "#research" : "#quickstart"} className="inline-flex h-11 items-center border border-[color:var(--line-strong)] px-5 text-sm hover:bg-[color:var(--paper-soft)]">
+                <a href={view === "researcher" ? "#research" : "#quickstart"} className="inline-flex h-11 items-center rounded-md border border-[color:var(--line-strong)] px-5 text-sm transition-colors hover:bg-[color:var(--paper-soft)]">
                   {view === "researcher" ? "Read the research" : "Install Pigeon"}
                 </a>
               </div>
@@ -178,7 +178,7 @@ function ContractReplay({ replay, setReplay }: { replay: Replay; setReplay: (val
         <div className="my-5 grid grid-cols-2 gap-x-6 gap-y-2 border-y rule py-4 mono text-xs sm:grid-cols-3">
           {gates.map((gate) => {
             const pass = !(fail && gate === "data");
-            return <div key={gate} className="flex items-center justify-between gap-2"><span className="text-[color:var(--muted)]">{gate}</span>{pass ? <Check size={14} className="text-[color:var(--allow)]" /> : <X size={14} className="text-[color:var(--deny)]" />}</div>;
+            return <div key={gate} className="flex items-center justify-between gap-2"><span className="text-[color:var(--muted)]">{gate}</span>{gate.pass ? <Check size={14} className="text-[color:var(--allow)]" /> : <X size={14} className="text-[color:var(--deny)]" />}</div>;
           })}
         </div>
         <div className="flex items-center justify-between gap-4"><span className="mono text-xs text-[color:var(--muted)]">broker decision</span><span className={`mono text-xs font-semibold ${fail ? "text-[color:var(--quarantine)]" : "text-[color:var(--allow)]"}`}>{fail ? "QUARANTINE" : "ALLOW"}</span></div>
