@@ -89,33 +89,32 @@ a { color: inherit; text-decoration: none; }
 
 .hero-pigeon {
   display: grid;
-  width: 132px;
-  min-width: 132px;
-  height: 104px;
+  width: 164px;
+  min-width: 164px;
+  height: 124px;
   place-items: center;
   transform-origin: 45% 55%;
 }
 
 .surface-card {
-  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease;
 }
 .surface-card:hover {
-  transform: translateY(-2px);
-  background: var(--bg-soft);
+  background: color-mix(in srgb, var(--panel) 82%, var(--muted-bg));
 }
 
 @keyframes caret { 50% { opacity: 0; } }
 .caret { animation: caret 1s steps(1) infinite; }
 
 @keyframes hero-in {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pigeon-arrive {
-  0% { opacity: 0; transform: translate(-10px, 7px) rotate(-1.5deg) scale(.97); }
-  70% { opacity: 1; transform: translate(1px, -1px) rotate(.25deg) scale(1.005); }
-  100% { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); }
+  0% { opacity: 0; transform: translate(-8px, 6px) scale(.985); }
+  70% { opacity: 1; transform: translate(1px, -1px) scale(1.002); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
 }
 
 @keyframes replay-row-in {
@@ -136,7 +135,7 @@ a { color: inherit; text-decoration: none; }
 
 .reveal {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(9px);
   transition: opacity 520ms cubic-bezier(.2,.7,.2,1), transform 520ms cubic-bezier(.2,.7,.2,1);
 }
 .reveal.is-visible { opacity: 1; transform: translateY(0); }
@@ -148,7 +147,7 @@ a, button, .contract-card, .brand-mark-stage { transition-property: color, backg
   .section-shell { padding-top: 4rem; padding-bottom: 4rem; }
   .service-flow { display: grid; grid-template-columns: 1fr; }
   .flow-arrow { transform: rotate(90deg); height: 12px; }
-  .hero-pigeon { width: 104px; min-width: 104px; height: 84px; }
+  .hero-pigeon { width: 122px; min-width: 122px; height: 96px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
