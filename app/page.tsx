@@ -1,4 +1,5 @@
-import { PigeonSite } from "@/components/PigeonSite";
+import { LegacyHashRedirect } from "@/components/LegacyHashRedirect";
+import { PublicHome } from "@/components/PublicHome";
 
 type GithubRelease = {
   tag_name: string;
@@ -27,6 +28,7 @@ export default async function Home() {
 
   return (
     <>
+      <LegacyHashRedirect />
       {release && (
         <a
           href={release.html_url}
@@ -40,7 +42,7 @@ export default async function Home() {
           <span className="release-bar__arrow" aria-hidden="true">↗</span>
         </a>
       )}
-      <PigeonSite />
+      <PublicHome />
     </>
   );
 }
