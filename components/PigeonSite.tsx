@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Copy, Github, Menu, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Check, Copy, Menu, RotateCcw, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PigeonLogo } from "@/components/PigeonLogo";
@@ -45,8 +45,8 @@ const USE_CASES = [
 
 const CLIENTS = [
   ["Node.js / TypeScript", "npm", "PigeonClient ships with the pigeonmq package."],
-  ["Python", "in-tree SDK", "Protocol-compatible client with registry publication planned after conformance validation."],
-  ["Rust", "in-tree SDK", "Protocol-compatible client with registry publication planned after conformance validation."],
+  ["Python", "SDK source", "Protocol-compatible Python client for Pigeon Protocol v1."],
+  ["Rust", "SDK source", "Protocol-compatible Rust client for Pigeon Protocol v1."],
   ["Any language", "HTTP", "Pigeon Protocol v1 is available directly over HTTP."],
 ] as const;
 
@@ -126,7 +126,7 @@ function MessageReplay() {
   const done = shown >= script.length;
 
   return (
-    <figure className="overflow-hidden rounded-lg border border-line-strong/70 bg-term shadow-[0_24px_60px_-32px_rgba(0,0,0,0.5)]">
+    <figure className="overflow-hidden rounded-lg border border-line-strong/70 bg-term">
       <div className="border-b border-white/10">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-1.5" aria-hidden="true">
@@ -292,7 +292,7 @@ function DeveloperSections() {
               </a>
             </div>
           </div>
-          <div className="overflow-hidden rounded-lg border border-line-strong/70 bg-term text-term-text shadow-[0_22px_55px_-38px_rgba(0,0,0,0.5)]">
+          <div className="overflow-hidden rounded-lg border border-line-strong/70 bg-term text-term-text">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 font-mono text-[0.7rem] text-term-dim">
               <span>node · publisher</span><span>orders.created</span>
             </div>
@@ -373,7 +373,7 @@ export function PigeonSite() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur-md">
         <nav className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-6 px-5 sm:px-10" aria-label="Main">
           <a href="#top" className="flex items-center gap-2.5 rounded" aria-label="PigeonMQ home">
             <PigeonLogo size={34} />
@@ -399,10 +399,10 @@ export function PigeonSite() {
                 </button>
               ))}
             </div>
-            <a href={GITHUB} target="_blank" rel="noreferrer" className="hidden h-9 items-center gap-2 rounded-md border border-line-strong bg-panel px-3.5 text-sm font-medium text-ink transition-colors hover:bg-muted-bg sm:inline-flex">
-              <Github size={15} /> GitHub
+            <a href={GITHUB} target="_blank" rel="noreferrer" className="hidden h-9 items-center gap-1.5 rounded-md border border-line bg-transparent px-3.5 text-sm font-medium text-muted transition-colors hover:border-line-strong hover:bg-panel hover:text-ink sm:inline-flex">
+              GitHub <ArrowRight size={13} className="-rotate-45" aria-hidden="true" />
             </a>
-            <button type="button" className="grid h-9 w-9 place-items-center rounded-md border border-line text-muted xl:hidden" aria-label={mobileOpen ? "Close menu" : "Open menu"} aria-expanded={mobileOpen} onClick={() => setMobileOpen((value) => !value)}>
+            <button type="button" className="grid h-9 w-9 place-items-center rounded-md border border-line text-muted transition-colors hover:border-line-strong hover:text-ink xl:hidden" aria-label={mobileOpen ? "Close menu" : "Open menu"} aria-expanded={mobileOpen} onClick={() => setMobileOpen((value) => !value)}>
               {mobileOpen ? <X size={17} /> : <Menu size={17} />}
             </button>
           </div>
@@ -418,8 +418,8 @@ export function PigeonSite() {
               <a key={id} href={`#${id}`} onClick={() => setMobileOpen(false)} className="block border-b border-line py-3 text-[1rem] capitalize text-text">{id === "how" ? "How it works" : id.replace("-", " ")}</a>
             ))}
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <a href={DOCS} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center rounded-md border border-line text-sm text-ink">Docs</a>
-              <a href={GITHUB} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-panel text-sm font-medium text-ink"><Github size={15} /> GitHub</a>
+              <a href={DOCS} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center rounded-md border border-line text-sm text-ink transition-colors hover:bg-panel">Docs</a>
+              <a href={GITHUB} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center gap-1.5 rounded-md border border-line bg-transparent text-sm font-medium text-muted transition-colors hover:border-line-strong hover:bg-panel hover:text-ink">GitHub <ArrowRight size={13} className="-rotate-45" aria-hidden="true" /></a>
             </div>
           </div>
         )}
@@ -431,9 +431,9 @@ export function PigeonSite() {
           <div className="relative mx-auto grid max-w-[1320px] items-center gap-14 px-5 pb-20 pt-16 sm:px-10 sm:pt-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-16 lg:pb-28">
             <div className="max-w-[42rem]">
               <div className="hero-enter hero-enter-1 flex items-center gap-5">
-                <div className="hero-pigeon" aria-hidden="true"><PigeonLogo size={112} /></div>
+                <div className="hero-pigeon" aria-hidden="true"><PigeonLogo size={136} /></div>
                 <div>
-                  <p className="font-mono text-[0.8rem] text-accent">Open source · contract-native messaging</p>
+                  <p className="font-mono text-[0.8rem] text-accent">Open-source message broker · contract-native messaging</p>
                   <p className="mt-1 text-sm text-muted">Pigeon Protocol v1 · Apache-2.0</p>
                 </div>
               </div>
@@ -463,7 +463,7 @@ export function PigeonSite() {
               </div>
 
               <p className="hero-enter hero-enter-6 mt-6 text-[0.95rem] text-muted">
-                {view === "developer" ? "Build with the broker, clients and protocol. Switch to Researcher for the authority model and open questions." : "Researcher view focuses on the communication-authority model and its design boundaries."}
+                {view === "developer" ? "Explore the protocol, quickstart and messaging patterns below." : "Explore the communication-authority model and research questions below."}
               </p>
             </div>
 
@@ -496,8 +496,8 @@ export function PigeonSite() {
           <Reveal className="mx-auto max-w-[1320px] px-5 py-20 sm:px-10 sm:py-24">
             <SectionHeader
               kicker="Clients and protocol"
-              title="A broker protocol, not a single-language runtime."
-              copy="The Node broker is the canonical implementation today. Clients use the same contract negotiation and decision semantics through Pigeon Protocol v1."
+              title="Use PigeonMQ from the runtime you already have."
+              copy="Use the Node.js client, protocol-compatible SDKs, or integrate directly with Pigeon Protocol v1 over HTTP."
             />
             <div className="mt-12 grid overflow-hidden rounded-lg border border-line md:grid-cols-2 lg:grid-cols-4">
               {CLIENTS.map(([runtime, distribution, copy], index) => (
@@ -511,26 +511,19 @@ export function PigeonSite() {
           </Reveal>
         </section>
 
-        <section id="status">
-          <Reveal className="mx-auto grid max-w-[1320px] gap-12 px-5 py-20 sm:px-10 sm:py-24 lg:grid-cols-[0.74fr_1.26fr] lg:items-start">
-            <SectionHeader
-              kicker="Project status"
-              title="Open-source broker infrastructure under active development."
-              copy="The broker path, communication contracts, admission gates, quarantine, audit flow and Node client are implemented and tested. Distribution, replication and broader interoperability are continuing work."
-            />
-            <div className="grid overflow-hidden rounded-lg border border-line sm:grid-cols-2">
-              {[
-                ["Broker", "implemented", "HTTP broker, contract state, message admission, append, receive, replay, quarantine and audit."],
-                ["Node client", "npm", "Published PigeonClient and CLI workflow for broker start, demo, policy lint and publish."],
-                ["Python + Rust", "in-tree", "Protocol-compatible SDKs undergoing conformance and distribution work."],
-                ["Architecture", "open", "Protocol docs, flows, ADRs, tests and research notes are available in the repository."],
-              ].map(([title, meta, copy], index) => (
-                <article key={title} className={`surface-card bg-panel p-6 ${index % 2 ? "sm:border-l sm:border-line" : ""} ${index >= 2 ? "border-t border-line" : ""}`}>
-                  <p className="font-mono text-xs text-accent">{meta}</p>
-                  <h3 className="mt-4 font-semibold text-ink">{title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-muted">{copy}</p>
-                </article>
-              ))}
+        <section id="start" className="border-b border-line">
+          <Reveal className="mx-auto max-w-[1320px] px-5 py-20 sm:px-10 sm:py-24">
+            <div className="overflow-hidden rounded-lg border border-line-strong bg-panel p-7 sm:p-9 lg:flex lg:items-end lg:justify-between lg:gap-12">
+              <div className="max-w-[46rem]">
+                <p className="font-mono text-[0.78rem] text-accent">Get started</p>
+                <h2 className="mt-4 font-serif text-[2.45rem] leading-[1.04] tracking-[-0.02em] text-ink sm:text-[3.2rem]">Put communication contracts on the message path.</h2>
+                <p className="mt-5 max-w-[42rem] text-[1.02rem] leading-7 text-muted">Start a broker locally, connect a producer and consumer, then inspect the contract and broker decision for each message.</p>
+              </div>
+              <div className="mt-7 flex flex-wrap gap-3 lg:mt-0 lg:justify-end">
+                <a href={DOCS} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center rounded-md border border-line-strong bg-bg px-5 text-[0.95rem] font-medium text-ink transition-colors hover:bg-muted-bg">Read docs</a>
+                <a href={DEMO} className="inline-flex h-11 items-center gap-2 rounded-md bg-ink px-5 text-[0.95rem] font-medium text-bg transition-transform hover:-translate-y-0.5">Run live demo <ArrowRight size={15} /></a>
+                <a href={GITHUB} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-1.5 rounded-md border border-line px-5 text-[0.95rem] text-muted transition-colors hover:border-line-strong hover:text-ink">GitHub <ArrowRight size={13} className="-rotate-45" aria-hidden="true" /></a>
+              </div>
             </div>
           </Reveal>
         </section>
