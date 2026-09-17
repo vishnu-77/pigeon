@@ -4,6 +4,7 @@ import { DocsShell } from "@/components/DocsShell";
 export const metadata: Metadata = {
   title: "Quickstart — PigeonMQ",
   description: "Install PigeonMQ, start a local broker, negotiate a communication contract and publish a governed message.",
+  alternates: { canonical: "/quickstart" },
 };
 
 export default function QuickstartPage() {
