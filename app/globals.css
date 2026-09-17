@@ -67,6 +67,25 @@ a { color: inherit; text-decoration: none; }
 ::selection { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
+.release-bar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--navy) 22%, var(--border));
+  background: color-mix(in srgb, var(--navy) 7%, var(--bg-soft));
+  padding: 7px 20px;
+  color: var(--navy);
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+.release-bar:hover { background: color-mix(in srgb, var(--navy) 10%, var(--bg-soft)); }
+.release-bar__label { color: var(--muted); }
+.release-bar__version { font-weight: 700; color: var(--navy); }
+.release-bar__arrow { transform: translateY(-1px); }
+
 .grid-backdrop, .site-grid {
   background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 72px 72px;
@@ -95,6 +114,23 @@ a { color: inherit; text-decoration: none; }
   place-items: center;
   transform-origin: 45% 55%;
 }
+.hero-pigeon img {
+  transform-origin: 50% 60%;
+  animation: pigeon-drift 6s ease-in-out 850ms infinite;
+}
+
+.hero-enter-5 > a:first-child,
+#start a[href="/demo"],
+#start a[href^="https://demo.pigeonmq.cc"] {
+  border: 1px solid color-mix(in srgb, var(--navy) 74%, black);
+  background: var(--navy);
+  color: var(--bg-soft);
+}
+.hero-enter-5 > a:first-child:hover,
+#start a[href="/demo"]:hover,
+#start a[href^="https://demo.pigeonmq.cc"]:hover {
+  background: color-mix(in srgb, var(--navy) 90%, white);
+}
 
 .surface-card {
   transition: background-color 180ms ease, border-color 180ms ease;
@@ -115,6 +151,12 @@ a { color: inherit; text-decoration: none; }
   0% { opacity: 0; transform: translate(-8px, 6px) scale(.985); }
   70% { opacity: 1; transform: translate(1px, -1px) scale(1.002); }
   100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+@keyframes pigeon-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  35% { transform: translate3d(1px, -2px, 0) rotate(.22deg); }
+  70% { transform: translate3d(-1px, 1px, 0) rotate(-.14deg); }
 }
 
 @keyframes replay-row-in {
@@ -148,12 +190,13 @@ a, button, .contract-card, .brand-mark-stage { transition-property: color, backg
   .service-flow { display: grid; grid-template-columns: 1fr; }
   .flow-arrow { transform: rotate(90deg); height: 12px; }
   .hero-pigeon { width: 122px; min-width: 122px; height: 96px; }
+  .release-bar { justify-content: flex-start; overflow: hidden; white-space: nowrap; padding-inline: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .caret { animation: none; }
-  .hero-enter, .hero-enter-1 .hero-pigeon, .replay-row { opacity: 1; animation: none; transform: none; }
+  .hero-enter, .hero-enter-1 .hero-pigeon, .hero-pigeon img, .replay-row { opacity: 1; animation: none; transform: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
