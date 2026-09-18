@@ -3,7 +3,7 @@ import { LiveDemoV2 } from "@/components/LiveDemoV2";
 
 export const metadata: Metadata = {
   title: "Live demo — Pigeon",
-  description: "Run a live Pigeon communication contract across a deployed sender, broker and receiver.",
+  description: "Send an encrypted message or a payment through Pigeon and see the broker's decision before delivery.",
   alternates: { canonical: "https://demo.pigeonmq.cc" },
   openGraph: {
     title: "Pigeon live demo",

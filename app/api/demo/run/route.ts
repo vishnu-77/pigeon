@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SCENARIOS = new Set([
+  "message",
   "payments",
   "notifications",
   "agent-tool-call",
@@ -11,8 +12,10 @@ const SCENARIOS = new Set([
   "cross-region",
   "deployment-event"
 ]);
-const LIVE_SCENARIOS = new Set(["payments"]);
+const LIVE_SCENARIOS = new Set(["message", "payments"]);
 const MODES = new Set(["allow", "violation"]);
+const ENCRYPTED_MESSAGE_PREFIX = "pigeon:aes-gcm:v1:";
+const ENCRYPTED_MESSAGE_MAX_LENGTH = 280;
 
 function brokerUrl() {
   return process.env.DEMO_BROKER_URL || "https://pigeon-broker-demo.fly.dev";
@@ -127,8 +130,74 @@ async function runPaymentsScenario(sessionId: string, runId: string, mode: strin
   return { decision: "ALLOW", receivedCount: received.body?.messages?.length ?? 0 };
 }
 
+async function runMessageScenario(sessionId: string, runId: string, mode: string, encryptedMessage: string) {
+  const senderContract = await forward("sender", {
+    sessionId,
+    path: "/v1/contracts",
+    method: "POST",
+    principal: "demo-producer",
+    body: { subjects: ["demo.message"], ttlMs: 120_000 }
+  });
+  if (!senderContract.ok) {
+    throw new Error(senderContract.body?.error?.message || `Sender could not negotiate a contract (${senderContract.status}).`);
+  }
+
+  const publish = await forward("sender", {
+    sessionId,
+    path: "/v1/messages",
+    method: "POST",
+    principal: "demo-producer",
+    contractId: senderContract.body.contract.id,
+    body: {
+      subject: "demo.message",
+      type: "demo.message.created",
+      source: "demo-client",
+      intent: "send_demo_message",
+      idempotencyKey: `${runId}:message`,
+      classification: "internal",
+      region: "uk",
+      data: {
+        demoRunId: runId,
+        message: encryptedMessage,
+        ...(mode === "violation" ? { restricted: { secret: "demo-value" } } : {})
+      }
+    }
+  });
+
+  if (!publish.ok) {
+    return { decision: "QUARANTINE", error: publish.body?.error?.message, code: publish.body?.error?.code, receivedCount: 0 };
+  }
+
+  const receiverContract = await forward("receiver", {
+    sessionId,
+    path: "/v1/contracts",
+    method: "POST",
+    body: { subjects: ["demo.message"], ttlMs: 120_000 }
+  });
+  if (!receiverContract.ok) {
+    throw new Error(receiverContract.body?.error?.message || `Receiver could not negotiate a contract (${receiverContract.status}).`);
+  }
+
+  const received = await forward("receiver", {
+    sessionId,
+    path: "/v1/subjects/demo.message/receive",
+    method: "POST",
+    contractId: receiverContract.body.contract.id,
+    body: { max: 1 }
+  });
+  if (!received.ok) {
+    throw new Error(received.body?.error?.message || `Receiver could not fetch the message (${received.status}).`);
+  }
+
+  return {
+    decision: "ALLOW",
+    receivedCount: received.body?.messages?.length ?? 0,
+    delivered: received.body?.messages?.[0]?.data?.message as string | undefined
+  };
+}
+
 export async function POST(request: Request) {
-  let input: { scenario?: string; mode?: string } = {};
+  let input: { scenario?: string; mode?: string; encryptedMessage?: string } = {};
   try {
     input = await request.json();
   } catch {
@@ -146,13 +215,18 @@ export async function POST(request: Request) {
       { status: 501 }
     );
   }
+  if (scenario === "message" && (typeof input.encryptedMessage !== "string" || !input.encryptedMessage.startsWith(ENCRYPTED_MESSAGE_PREFIX) || input.encryptedMessage.length > ENCRYPTED_MESSAGE_MAX_LENGTH)) {
+    return NextResponse.json({ error: "Invalid encrypted message payload.", code: "INVALID_ENCRYPTED_MESSAGE" }, { status: 400 });
+  }
 
   const runId = `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const startedAt = Date.now();
 
   try {
     const sessionId = await createSession();
-    const outcome = await runPaymentsScenario(sessionId, runId, mode);
+    const outcome = scenario === "message"
+      ? await runMessageScenario(sessionId, runId, mode, input.encryptedMessage as string)
+      : await runPaymentsScenario(sessionId, runId, mode);
     return NextResponse.json({
       live: true,
       runId,
@@ -162,7 +236,10 @@ export async function POST(request: Request) {
       decision: outcome.decision,
       error: outcome.error,
       code: outcome.code,
-      receiver: { receivedCount: outcome.receivedCount }
+      receiver: {
+        receivedCount: outcome.receivedCount,
+        delivered: "delivered" in outcome && outcome.delivered ? [{ data: { message: outcome.delivered } }] : []
+      }
     });
   } catch (error) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Newsreader, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import "./docs-pages.css";
 
 const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk", display: "swap" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap", preload: false });
