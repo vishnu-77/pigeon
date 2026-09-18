@@ -11,8 +11,16 @@ import { DemoSessions } from "./demo-sessions.js";
 const MAX_BODY_BYTES = 1_048_576;
 
 // Routes an isolated visitor demo session may call, in addition to the
-// payments.authorize receive/ack paths matched below.
+// per-subject receive/ack paths matched below.
 const DEMO_ROUTES = new Set(["/v1/contracts", "/v1/messages", "/v1/subjects", "/v1/audit", "/v1/quarantine"]);
+
+// Subjects an isolated demo session's broker (src/demo-sessions.js) registers
+// and may therefore receive/ack against. Add a name here when a new subject
+// is registered onto the session broker.
+const DEMO_SESSION_SUBJECTS = ["payments.authorize", "demo.message"];
+const DEMO_SUBJECT_ROUTE = new RegExp(
+  `^/v1/subjects/(?:${DEMO_SESSION_SUBJECTS.map((name) => name.replace(".", "\\.")).join("|")})(?:/receive|/messages/[^/]+/ack)?$`
+);
 
 const routes = [
   { method: "GET", pattern: /^\/$/, handler: serviceInfo },
@@ -51,7 +59,7 @@ export function createPigeonServer(broker = createDemoBroker(PigeonBroker), { de
           return send(response, 200, { deleted: true });
         }
         const path = demo[2] ?? "";
-        if (!DEMO_ROUTES.has(path) && !/^\/v1\/subjects\/payments\.authorize(?:\/receive|\/messages\/[^/]+\/ack)?$/.test(path)) {
+        if (!DEMO_ROUTES.has(path) && !DEMO_SUBJECT_ROUTE.test(path)) {
           return send(response, 404, errorBody("NOT_FOUND", "Demo route not found."));
         }
         activeBroker = demoSessions.get(demo[1]);

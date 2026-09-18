@@ -45,6 +45,29 @@ test("isolated HTTP demo sessions publish, deduplicate, quarantine, receive and 
   assert.equal((await fetch(`${base}${sessions[1].basePath}/v1/audit`)).status, 200);
 });
 
+test("isolated HTTP demo sessions also carry the demo.message subject, alongside payments", async (t) => {
+  const server = createPigeonServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const session = (await (await fetch(`${base}/demo/sessions`, { method: "POST" })).json()).session;
+  const url = base + session.basePath;
+  const producer = new PigeonClient({ url, token: "demo-producer-token" });
+  const consumer = new PigeonClient({ url, token: "demo-consumer-token" });
+  await producer.connect(["demo.message"]);
+  await consumer.connect(["demo.message"]);
+  const options = { intent: "send_demo_message", idempotencyKey: "run-1", classification: "internal", region: "uk" };
+  await producer.request("demo.message", { demoRunId: "run-1", message: "pigeon:aes-gcm:v1:iv:ct" }, options);
+  const messages = await consumer.receive("demo.message", { max: 10 });
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].data.demoRunId, "run-1");
+  await assert.rejects(
+    () => producer.request("demo.message", { demoRunId: "run-2", message: "pigeon:aes-gcm:v1:iv:ct", restricted: { secret: "leak" } }, { ...options, idempotencyKey: "run-2" }),
+    { code: "SENSITIVE_FIELD_DENIED" }
+  );
+  await assert.rejects(() => producer.connect(["payments.authorize"]), { code: "NO_PERMITTED_SUBJECTS" });
+});
+
 test("demo sessions have bounded capacity, expiry and operations", () => {
   let now = 0;
   const sessions = new DemoSessions({ now: () => now, ttlMs: 100, capacity: 1 });

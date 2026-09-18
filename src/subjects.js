@@ -240,6 +240,18 @@ export function createPaymentBroker(BrokerClass) {
   return broker;
 }
 
+// Backs each isolated visitor demo session (src/demo-sessions.js) with every
+// subject the public live demo can run, not just payments.
+export function createSessionDemoBroker(BrokerClass) {
+  const broker = new BrokerClass();
+  broker.registerSchema("payment.authorization.v1", paymentAuthorizationSchema);
+  broker.registerSubject(paymentsAuthorizeSubject);
+  broker.registerSchema("demo.message.v1", demoMessageSchema);
+  broker.registerSubject(demoMessageSubject);
+  registerDemoAuth(broker);
+  return broker;
+}
+
 export function registerDemoSubjects(broker) {
   broker.registerSchema("payment.authorization.v1", paymentAuthorizationSchema);
   broker.registerSubject(paymentsAuthorizeSubject);
