@@ -184,6 +184,200 @@ async function runEncryptedMessage(runId: string, mode: string, encryptedMessage
   };
 }
 
+
+type DirectScenario = {
+  subject: string;
+  producerToken: string;
+  consumerToken: string;
+  intent: string;
+  type: string;
+  classification: string;
+  region: string;
+  allowedData: (runId: string) => Record<string, unknown>;
+  violatingData: (runId: string) => Record<string, unknown>;
+};
+
+function directScenarioConfig(scenario: string): DirectScenario | null {
+  if (scenario === "payments") {
+    return {
+      subject: "payments.authorize",
+      producerToken: process.env.PIGEON_PAYMENT_TOKEN || "checkout-token",
+      consumerToken: process.env.PIGEON_PAYMENT_RECEIVER_TOKEN || "gateway-token",
+      intent: "authorize_payment",
+      type: "payment.authorization.requested",
+      classification: "pci",
+      region: "uk",
+      allowedData: (runId) => ({
+        demoRunId: runId,
+        merchantId: "merchant_demo",
+        orderId: `order_${runId}`,
+        amount: 73.25,
+        currency: "GBP",
+        paymentToken: "tok_demo_visa"
+      }),
+      violatingData: (runId) => ({
+        demoRunId: runId,
+        merchantId: "merchant_demo",
+        orderId: `order_${runId}`,
+        amount: 73.25,
+        currency: "GBP",
+        paymentToken: "tok_demo_visa",
+        card: { pan: "4111111111111111" }
+      })
+    };
+  }
+
+  if (scenario === "notifications") {
+    return {
+      subject: "notifications.send",
+      producerToken: process.env.PIGEON_NOTIFICATION_TOKEN || "orders-token",
+      consumerToken: process.env.PIGEON_NOTIFICATION_RECEIVER_TOKEN || "notifier-token",
+      intent: "send_notification",
+      type: "notification.send.requested",
+      classification: "pii",
+      region: "uk",
+      allowedData: (runId) => ({
+        demoRunId: runId,
+        recipientId: `customer_${runId}`,
+        channel: "email",
+        templateId: "order-confirmed",
+        locale: "en-GB",
+        params: { orderRef: runId }
+      }),
+      violatingData: (runId) => ({
+        demoRunId: runId,
+        recipientId: `customer_${runId}`,
+        channel: "email",
+        templateId: "order-confirmed",
+        locale: "en-GB",
+        params: { orderRef: runId },
+        recipient: { ssn: "123-45-6789" }
+      })
+    };
+  }
+
+  return null;
+}
+
+async function runDirectScenario(scenario: string, runId: string, mode: string) {
+  const config = directScenarioConfig(scenario);
+  if (!config) throw new Error(`No direct demo configuration for ${scenario}.`);
+
+  const producerContractResponse = await brokerJson("/v1/contracts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${config.producerToken}`,
+      "x-pigeon-region": config.region
+    },
+    body: JSON.stringify({ subjects: [config.subject] })
+  });
+  if (!producerContractResponse.response.ok) {
+    throw new Error(`Producer contract failed: ${producerContractResponse.response.status} ${JSON.stringify(producerContractResponse.payload)}`);
+  }
+  const producerContract = producerContractResponse.payload.contract;
+
+  const data = mode === "allow" ? config.allowedData(runId) : config.violatingData(runId);
+  const envelope = {
+    subject: config.subject,
+    type: config.type,
+    source: "pigeon-public-demo",
+    intent: config.intent,
+    idempotencyKey: `${runId}:${scenario}:${mode}`,
+    classification: config.classification,
+    region: config.region,
+    data
+  };
+
+  const published = await brokerJson("/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${config.producerToken}`,
+      "x-pigeon-contract": producerContract.id,
+      "x-pigeon-region": config.region
+    },
+    body: JSON.stringify(envelope)
+  });
+
+  const accepted = published.response.ok;
+  const errorCode = published.payload?.error?.code || null;
+  const decision = accepted ? "allow" : mode === "violation" ? "quarantine" : "deny";
+  const failGate = gateFromError(errorCode);
+  const gates = ["identity", "intent", "schema", "region", "data", "idempotency"].map((name) => ({
+    name,
+    pass: accepted || name !== failGate,
+    reason: name === failGate ? errorCode : undefined
+  }));
+
+  const consumerContractResponse = await brokerJson("/v1/contracts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${config.consumerToken}`,
+      "x-pigeon-region": config.region
+    },
+    body: JSON.stringify({ subjects: [config.subject] })
+  });
+  if (!consumerContractResponse.response.ok) {
+    throw new Error(`Receiver contract failed: ${consumerContractResponse.response.status} ${JSON.stringify(consumerContractResponse.payload)}`);
+  }
+  const consumerContract = consumerContractResponse.payload.contract;
+
+  let delivered: any[] = [];
+  const attempts = mode === "allow" ? 5 : 1;
+  for (let attempt = 0; attempt < attempts && delivered.length === 0; attempt += 1) {
+    const received = await brokerJson(`/v1/subjects/${encodeURIComponent(config.subject)}/receive`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${config.consumerToken}`,
+        "x-pigeon-contract": consumerContract.id,
+        "x-pigeon-region": config.region
+      },
+      body: JSON.stringify({ max: 50 })
+    });
+    if (!received.response.ok) throw new Error(`Receive failed: ${received.response.status} ${JSON.stringify(received.payload)}`);
+    delivered = (received.payload.messages || []).filter((message: any) => message?.data?.demoRunId === runId);
+    if (delivered.length === 0 && attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  return {
+    sender: {
+      service: "sender",
+      scenario,
+      mode,
+      runId,
+      subject: config.subject,
+      contract: { id: producerContract.id, expiresAt: producerContract.expiresAt },
+      message: {
+        id: published.payload?.message?.id || null,
+        subject: config.subject,
+        idempotencyKey: envelope.idempotencyKey
+      },
+      decision,
+      errorCode,
+      gates,
+      brokerStatus: published.response.status
+    },
+    receiver: {
+      service: "receiver",
+      scenario,
+      mode,
+      runId,
+      subject: config.subject,
+      contract: { id: consumerContract.id, expiresAt: consumerContract.expiresAt },
+      receivedCount: delivered.length,
+      delivered,
+      proof: mode === "violation"
+        ? delivered.length === 0 ? "receiver_did_not_receive_violating_message" : "unexpected_delivery"
+        : delivered.length > 0 ? "receiver_received_allowed_message" : "message_not_observed"
+    },
+    decision,
+    gates
+  };
+}
+
 function gateFromError(code: string | null) {
   if (!code) return "data";
   if (code.includes("INTENT")) return "intent";
@@ -243,6 +437,26 @@ export async function POST(request: Request) {
         contract: encrypted.sender.contract,
         gates: encrypted.gates,
         message: encrypted.sender.message,
+        audit: [],
+        quarantine: []
+      });
+    }
+
+    if (scenario === "payments" || scenario === "notifications") {
+      const direct = await runDirectScenario(scenario, runId, mode);
+      return NextResponse.json({
+        live: true,
+        environment: isProduction ? "production" : "development",
+        runId,
+        scenario,
+        mode,
+        elapsedMs: Date.now() - startedAt,
+        sender: direct.sender,
+        receiver: direct.receiver,
+        decision: direct.decision,
+        contract: direct.sender.contract,
+        gates: direct.gates,
+        message: direct.sender.message,
         audit: [],
         quarantine: []
       });
