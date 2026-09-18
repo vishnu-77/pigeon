@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PigeonLogo } from "@/components/PigeonLogo";
 
 const links = [
-  ["Get started", "/quickstart"],
+  ["Quickstart", "/quickstart"],
   ["Concepts", "/concepts"],
   ["Protocol", "/protocol"],
   ["Use cases", "/use-cases"],
