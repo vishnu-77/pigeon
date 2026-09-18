@@ -69,7 +69,7 @@ async function decryptForDemo(key: CryptoKey, packed: string) {
 
 export function LiveDemoV2() {
   const [scenario, setScenario] = useState<ScenarioKey>("message");
-  const [mode, setMode] = useState<Mode>("violation");
+  const [mode, setMode] = useState<Mode>("allow");
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [result, setResult] = useState<RunPayload | null>(null);
   const [running, setRunning] = useState(false);
@@ -164,7 +164,7 @@ export function LiveDemoV2() {
               <h1 className="mt-5 font-serif text-[2.9rem] leading-[0.98] tracking-[-0.025em] text-ink sm:text-[4.1rem]">Send a message. See what the broker actually receives.</h1>
               <p className="mt-7 max-w-[45rem] text-[1.06rem] leading-[1.7] text-muted">Type a normal message. The browser encrypts it with AES-256-GCM before the sender sees it, the ciphertext travels through PigeonMQ, and an allowed delivery is decrypted back in this browser after receiver proof.</p>
             </div>
-            <ServiceHealth status={status} />
+            <ServiceHealth status={status} scenario={scenario} />
           </div>
         </section>
 
@@ -297,7 +297,24 @@ export function LiveDemoV2() {
   );
 }
 
-function ServiceHealth({ status }: { status: StatusPayload | null }) {
+function ServiceHealth({ status, scenario }: { status: StatusPayload | null; scenario: ScenarioKey }) {
+  if (scenario === "message") {
+    const broker = status?.services?.broker;
+    return (
+      <div className="rounded-lg border border-line bg-panel p-4">
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-xs text-muted">ENCRYPTED MESSAGE PATH</p>
+          <span className={`font-mono text-[10px] uppercase tracking-[0.12em] ${broker?.ok ? "text-ok" : "text-muted"}`}>{status === null ? "checking" : broker?.ok ? "ready" : "broker check"}</span>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs"><span className="block uppercase text-muted">browser</span><span className="mt-2 block font-mono text-ok">READY</span></div>
+          <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs"><span className="block uppercase text-muted">broker</span><span className={`mt-2 block font-mono ${broker?.ok ? "text-ok" : "text-signal"}`}>{stateLabel(status, broker)}</span></div>
+          <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs"><span className="block uppercase text-muted">decrypt</span><span className="mt-2 block font-mono text-ok">READY</span></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border border-line bg-panel p-4">
       <div className="flex items-center justify-between">
