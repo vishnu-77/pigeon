@@ -267,17 +267,17 @@ export function LiveDemoV2() {
         <section>
           <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-10 sm:py-20">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <p className="font-mono text-[0.76rem] text-muted">Deployment topology</p>
+              <p className="font-mono text-[0.76rem] text-muted">Communication roles</p>
               {status?.environment && <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{status.environment}</span>}
             </div>
             <div className="mt-6 grid overflow-hidden rounded-lg border border-line md:grid-cols-3">
               {([
-                ["sender", "Publisher service", "Negotiates a publishing contract and submits predefined demo messages."],
-                ["broker", "Pigeon broker", "Owns contract state, admission decisions, append, audit and quarantine."],
-                ["receiver", "Consumer service", "Negotiates its own receive contract and proves whether delivery happened."],
+                ["sender", "Publisher role", "Authenticates, negotiates publish authority and submits the governed message envelope."],
+                ["broker", "Pigeon broker", "Owns contract state, evaluates admission and decides whether communication may proceed."],
+                ["receiver", "Receiver role", "Negotiates receive authority and proves whether an allowed message became deliverable."],
               ] as const).map(([name, title, copy], index) => {
-                const service = status?.services?.[name];
-                const label = stateLabel(status, service);
+                const service = name === "broker" ? status?.services?.broker : { ok: true, configured: true };
+                const label = name === "broker" ? stateLabel(status, service) : "READY";
                 return (
                   <article key={name} className={`bg-panel p-6 ${index ? "border-t border-line md:border-l md:border-t-0" : ""}`}>
                     <div className="flex items-center justify-between gap-4">
@@ -297,40 +297,29 @@ export function LiveDemoV2() {
   );
 }
 
-function ServiceHealth({ status, scenario }: { status: StatusPayload | null; scenario: ScenarioKey }) {
-  if (scenario === "message") {
-    const broker = status?.services?.broker;
-    return (
-      <div className="rounded-lg border border-line bg-panel p-4">
-        <div className="flex items-center justify-between">
-          <p className="font-mono text-xs text-muted">ENCRYPTED MESSAGE PATH</p>
-          <span className={`font-mono text-[10px] uppercase tracking-[0.12em] ${broker?.ok ? "text-ok" : "text-muted"}`}>{status === null ? "checking" : broker?.ok ? "ready" : "broker check"}</span>
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs"><span className="block uppercase text-muted">browser</span><span className="mt-2 block font-mono text-ok">READY</span></div>
-          <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs"><span className="block uppercase text-muted">broker</span><span className={`mt-2 block font-mono ${broker?.ok ? "text-ok" : "text-signal"}`}>{stateLabel(status, broker)}</span></div>
-          <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs"><span className="block uppercase text-muted">decrypt</span><span className="mt-2 block font-mono text-ok">READY</span></div>
-        </div>
-      </div>
-    );
-  }
-
+function ServiceHealth({ status }: { status: StatusPayload | null; scenario: ScenarioKey }) {
+  const broker = status?.services?.broker;
   return (
     <div className="rounded-lg border border-line bg-panel p-4">
       <div className="flex items-center justify-between">
-        <p className="font-mono text-xs text-muted">SERVICE HEALTH</p>
-        <span className={`font-mono text-[10px] uppercase tracking-[0.12em] ${status?.ok ? "text-ok" : "text-muted"}`}>{status === null ? "checking" : status.ok ? "ready" : "partial"}</span>
+        <p className="font-mono text-xs text-muted">LIVE PATH HEALTH</p>
+        <span className={`font-mono text-[10px] uppercase tracking-[0.12em] ${broker?.ok ? "text-ok" : "text-muted"}`}>
+          {status === null ? "checking" : broker?.ok ? "ready" : "broker check"}
+        </span>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2">
-        {(["sender", "broker", "receiver"] as const).map((name) => {
-          const service = status?.services?.[name];
-          return (
-            <div key={name} className="rounded-md border border-line bg-bg px-3 py-3 text-xs">
-              <span className="block uppercase text-muted">{name}</span>
-              <span className={`mt-2 block font-mono ${service?.ok ? "text-ok" : "text-signal"}`}>{stateLabel(status, service)}</span>
-            </div>
-          );
-        })}
+        <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs">
+          <span className="block uppercase text-muted">publisher</span>
+          <span className="mt-2 block font-mono text-ok">READY</span>
+        </div>
+        <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs">
+          <span className="block uppercase text-muted">broker</span>
+          <span className={`mt-2 block font-mono ${broker?.ok ? "text-ok" : "text-signal"}`}>{stateLabel(status, broker)}</span>
+        </div>
+        <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs">
+          <span className="block uppercase text-muted">receiver</span>
+          <span className="mt-2 block font-mono text-ok">READY</span>
+        </div>
       </div>
     </div>
   );
