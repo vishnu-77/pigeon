@@ -59,6 +59,141 @@ async function postJson(url: string, body: unknown) {
   }
 }
 
+
+const brokerUrl = process.env.PIGEON_URL || "https://broker.pigeonmq.cc";
+
+async function brokerJson(path: string, init: RequestInit) {
+  const response = await fetch(`${brokerUrl}${path}`, { ...init, cache: "no-store" });
+  const raw = await response.text();
+  let payload: any = null;
+  try { payload = JSON.parse(raw); } catch { payload = null; }
+  if (!payload) throw new Error(`Broker returned ${response.status} non-JSON response.`);
+  return { response, payload };
+}
+
+async function runEncryptedMessage(runId: string, mode: string, encryptedMessage: string) {
+  const producerToken = process.env.PIGEON_DEMO_TOKEN || "demo-producer-token";
+  const consumerToken = process.env.PIGEON_DEMO_RECEIVER_TOKEN || "demo-consumer-token";
+  const subject = "demo.message";
+  const region = "uk";
+
+  const producerContractResponse = await brokerJson("/v1/contracts", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${producerToken}`, "x-pigeon-region": region },
+    body: JSON.stringify({ subjects: [subject] })
+  });
+  if (!producerContractResponse.response.ok) {
+    throw new Error(`Producer contract failed: ${producerContractResponse.response.status} ${JSON.stringify(producerContractResponse.payload)}`);
+  }
+  const producerContract = producerContractResponse.payload.contract;
+
+  const envelope = {
+    subject,
+    type: "demo.message.created",
+    source: "pigeon-browser-demo",
+    intent: "send_demo_message",
+    idempotencyKey: `${runId}:message:${mode}`,
+    classification: "internal",
+    region,
+    data: {
+      demoRunId: runId,
+      message: encryptedMessage,
+      ...(mode === "violation" ? { restricted: { secret: "demo-value" } } : {})
+    }
+  };
+
+  const published = await brokerJson("/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${producerToken}`,
+      "x-pigeon-contract": producerContract.id,
+      "x-pigeon-region": region
+    },
+    body: JSON.stringify(envelope)
+  });
+
+  const accepted = published.response.ok;
+  const errorCode = published.payload?.error?.code || null;
+  const decision = accepted ? "allow" : mode === "violation" ? "quarantine" : "deny";
+  const failGate = gateFromError(errorCode);
+
+  const consumerContractResponse = await brokerJson("/v1/contracts", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${consumerToken}`, "x-pigeon-region": region },
+    body: JSON.stringify({ subjects: [subject] })
+  });
+  if (!consumerContractResponse.response.ok) {
+    throw new Error(`Receiver contract failed: ${consumerContractResponse.response.status} ${JSON.stringify(consumerContractResponse.payload)}`);
+  }
+  const consumerContract = consumerContractResponse.payload.contract;
+
+  let delivered: any[] = [];
+  const attempts = mode === "allow" ? 5 : 1;
+  for (let attempt = 0; attempt < attempts && delivered.length === 0; attempt += 1) {
+    const received = await brokerJson(`/v1/subjects/${encodeURIComponent(subject)}/receive`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${consumerToken}`,
+        "x-pigeon-contract": consumerContract.id,
+        "x-pigeon-region": region
+      },
+      body: JSON.stringify({ max: 50 })
+    });
+    if (!received.response.ok) throw new Error(`Receive failed: ${received.response.status} ${JSON.stringify(received.payload)}`);
+    delivered = (received.payload.messages || []).filter((message: any) => message?.data?.demoRunId === runId);
+    if (delivered.length === 0 && attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  const gates = ["identity", "intent", "schema", "region", "data", "idempotency"].map((name) => ({
+    name,
+    pass: accepted || name !== failGate,
+    reason: name === failGate ? errorCode : undefined
+  }));
+
+  return {
+    sender: {
+      service: "sender",
+      scenario: "message",
+      mode,
+      runId,
+      subject,
+      contract: { id: producerContract.id, expiresAt: producerContract.expiresAt },
+      message: { id: published.payload?.message?.id || null, subject, idempotencyKey: envelope.idempotencyKey },
+      decision,
+      errorCode,
+      gates,
+      brokerStatus: published.response.status
+    },
+    receiver: {
+      service: "receiver",
+      scenario: "message",
+      mode,
+      runId,
+      subject,
+      contract: { id: consumerContract.id, expiresAt: consumerContract.expiresAt },
+      receivedCount: delivered.length,
+      delivered,
+      proof: mode === "violation"
+        ? delivered.length === 0 ? "receiver_did_not_receive_violating_message" : "unexpected_delivery"
+        : delivered.length > 0 ? "receiver_received_allowed_message" : "message_not_observed"
+    },
+    decision,
+    gates
+  };
+}
+
+function gateFromError(code: string | null) {
+  if (!code) return "data";
+  if (code.includes("INTENT")) return "intent";
+  if (code.includes("SCHEMA")) return "schema";
+  if (code.includes("REGION")) return "region";
+  if (code.includes("DUPLICATE") || code.includes("IDEMPOT")) return "idempotency";
+  if (code.includes("CONTRACT") || code.includes("AUTH")) return "identity";
+  return "data";
+}
+
 export async function POST(request: Request) {
   let input: { scenario?: string; mode?: string; encryptedMessage?: string } = {};
   try {
@@ -93,12 +228,27 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
 
   try {
-    const sender = await postJson(
-      senderUrl,
-      scenario === "message"
-        ? { mode, runId, message: input.encryptedMessage }
-        : { scenario, mode, runId }
-    );
+    if (scenario === "message") {
+      const encrypted = await runEncryptedMessage(runId, mode, input.encryptedMessage!);
+      return NextResponse.json({
+        live: true,
+        environment: isProduction ? "production" : "development",
+        runId,
+        scenario,
+        mode,
+        elapsedMs: Date.now() - startedAt,
+        sender: encrypted.sender,
+        receiver: encrypted.receiver,
+        decision: encrypted.decision,
+        contract: encrypted.sender.contract,
+        gates: encrypted.gates,
+        message: encrypted.sender.message,
+        audit: [],
+        quarantine: []
+      });
+    }
+
+    const sender = await postJson(senderUrl, { scenario, mode, runId });
     if (sender?.scenario !== scenario || sender?.runId !== runId) {
       return NextResponse.json(
         { live: false, code: "BACKEND_SCENARIO_NOT_DEPLOYED", error: "The live sender is not running the current scenario backend.", scenario, mode, runId },
@@ -106,12 +256,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const receiver = await postJson(
-      receiverUrl,
-      scenario === "message"
-        ? { mode, runId }
-        : { scenario, mode, runId, subject: sender.subject }
-    );
+    const receiver = await postJson(receiverUrl, { scenario, mode, runId, subject: sender.subject });
     return NextResponse.json({
       live: true,
       environment: isProduction ? "production" : "development",
