@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PigeonLogo } from "@/components/PigeonLogo";
 
-type ScenarioKey = "agent-tool-call" | "payments" | "customer-data" | "cross-region" | "deployment-event" | "notifications";
+type ScenarioKey = "message" | "agent-tool-call" | "payments" | "customer-data" | "cross-region" | "deployment-event" | "notifications";
 type Mode = "allow" | "violation";
 type ServiceState = { ok: boolean; configured?: boolean; latencyMs?: number; status?: number };
 type StatusPayload = { ok: boolean; environment?: string; services?: Record<string, ServiceState> };
@@ -16,10 +16,12 @@ type RunPayload = {
   error?: string;
   code?: string;
   gates?: Array<{ name?: string; gate?: string; pass?: boolean; outcome?: string; reason?: string }>;
-  receiver?: { receivedCount?: number };
+  receiver?: { receivedCount?: number; delivered?: Array<{ data?: { message?: string } }> };
+  clientProof?: { plaintext?: string; ciphertext?: string; decrypted?: string; algorithm?: string };
 };
 
 const SCENARIOS: Record<ScenarioKey, { label: string; subject: string; proof: string; violation: string; live: boolean }> = {
+  message: { label: "Encrypted message", subject: "demo.message", proof: "contract + encrypted payload", violation: "restricted field added outside the encrypted payload", live: true },
   "agent-tool-call": { label: "AI agent → tool runner", subject: "agents.tool.invoke", proof: "delegated intent + tool scope", violation: "action falls outside the negotiated communication scope", live: false },
   payments: { label: "Checkout → payment gateway", subject: "payments.authorize", proof: "PCI + sensitive-field boundary", violation: "raw card data enters the message", live: true },
   "customer-data": { label: "Profile service → analytics", subject: "customer.profile.export", proof: "classification + purpose boundary", violation: "restricted customer data crosses the contract", live: false },
@@ -35,12 +37,43 @@ function stateLabel(status: StatusPayload | null, service?: ServiceState) {
   return "OFFLINE";
 }
 
+function toBase64Url(bytes: Uint8Array) {
+  let binary = "";
+  bytes.forEach((value) => { binary += String.fromCharCode(value); });
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function fromBase64Url(value: string) {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(base64);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+async function encryptForDemo(plaintext: string) {
+  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded));
+  const packed = `pigeon:aes-gcm:v1:${toBase64Url(iv)}:${toBase64Url(encrypted)}`;
+  return { key, packed };
+}
+
+async function decryptForDemo(key: CryptoKey, packed: string) {
+  const parts = packed.split(":");
+  if (parts.length !== 5 || parts.slice(0, 3).join(":") !== "pigeon:aes-gcm") throw new Error("Invalid encrypted payload.");
+  const iv = fromBase64Url(parts[3]);
+  const ciphertext = fromBase64Url(parts[4]);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+  return new TextDecoder().decode(decrypted);
+}
+
 export function LiveDemoV2() {
-  const [scenario, setScenario] = useState<ScenarioKey>("payments");
+  const [scenario, setScenario] = useState<ScenarioKey>("message");
   const [mode, setMode] = useState<Mode>("violation");
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [result, setResult] = useState<RunPayload | null>(null);
   const [running, setRunning] = useState(false);
+  const [message, setMessage] = useState("Hello from PigeonMQ");
   const selected = SCENARIOS[scenario];
 
   useEffect(() => {
@@ -67,12 +100,37 @@ export function LiveDemoV2() {
     setRunning(true);
     setResult(null);
     try {
+      let key: CryptoKey | null = null;
+      let encryptedMessage: string | undefined;
+      if (scenario === "message") {
+        const plaintext = message.trim().slice(0, 96) || "Hello from PigeonMQ";
+        const encrypted = await encryptForDemo(plaintext);
+        key = encrypted.key;
+        encryptedMessage = encrypted.packed;
+      }
+
       const response = await fetch("/api/demo/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scenario, mode }),
+        body: JSON.stringify({ scenario, mode, encryptedMessage }),
       });
-      setResult(await response.json());
+      const payload = (await response.json()) as RunPayload;
+
+      if (scenario === "message" && key && payload.live) {
+        const deliveredCiphertext = payload.receiver?.delivered?.[0]?.data?.message;
+        let decrypted: string | undefined;
+        if (mode === "allow" && deliveredCiphertext) {
+          decrypted = await decryptForDemo(key, deliveredCiphertext);
+        }
+        payload.clientProof = {
+          plaintext: message.trim().slice(0, 96) || "Hello from PigeonMQ",
+          ciphertext: encryptedMessage,
+          decrypted,
+          algorithm: "AES-256-GCM",
+        };
+      }
+
+      setResult(payload);
     } catch (error) {
       setResult({ live: false, error: error instanceof Error ? error.message : "Demo request failed." });
     } finally {
@@ -102,9 +160,9 @@ export function LiveDemoV2() {
           <div className="grid-backdrop pointer-events-none absolute inset-0" aria-hidden="true" />
           <div className="relative mx-auto grid max-w-[1320px] gap-12 px-5 py-16 sm:px-10 sm:py-24 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
             <div className="max-w-[48rem]">
-              <p className="font-mono text-[0.8rem] text-accent">Sender → contract → broker → receiver</p>
-              <h1 className="mt-5 font-serif text-[2.9rem] leading-[0.98] tracking-[-0.025em] text-ink sm:text-[4.1rem]">See the broker decision before delivery.</h1>
-              <p className="mt-7 max-w-[45rem] text-[1.06rem] leading-[1.7] text-muted">Choose a broker-backed messaging path, run an allowed message or a deliberate violation, and inspect the contract decision and receiver outcome.</p>
+              <p className="font-mono text-[0.8rem] text-accent">Browser → sender → contract → broker → receiver → browser</p>
+              <h1 className="mt-5 font-serif text-[2.9rem] leading-[0.98] tracking-[-0.025em] text-ink sm:text-[4.1rem]">Send a message. See what the broker actually receives.</h1>
+              <p className="mt-7 max-w-[45rem] text-[1.06rem] leading-[1.7] text-muted">Type a normal message. The browser encrypts it with AES-256-GCM before the sender sees it, the ciphertext travels through PigeonMQ, and an allowed delivery is decrypted back in this browser after receiver proof.</p>
             </div>
             <ServiceHealth status={status} />
           </div>
@@ -149,9 +207,30 @@ export function LiveDemoV2() {
                   <Info label="MESSAGE TEST" value={mode === "allow" ? "compliant message" : selected.violation} />
                 </div>
 
+                {scenario === "message" && (
+                  <div className="border-b border-line bg-bg-soft p-5">
+                    <label htmlFor="demo-message" className="block font-mono text-[0.72rem] uppercase tracking-[0.11em] text-muted">Your message</label>
+                    <textarea
+                      id="demo-message"
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value.slice(0, 96))}
+                      rows={3}
+                      maxLength={96}
+                      className="mt-3 w-full resize-none rounded-md border border-line bg-bg px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-line-strong"
+                      placeholder="Type a message to send through PigeonMQ"
+                    />
+                    <div className="mt-2 flex flex-wrap justify-between gap-2 font-mono text-[0.68rem] text-muted">
+                      <span>plaintext stays in this browser · AES-256-GCM</span>
+                      <span>{message.length}/96</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="p-5 sm:p-6">
                   <div className="service-flow" aria-label="sender to broker to receiver">
-                    <FlowNode label="sender" meta="publisher principal" />
+                    <FlowNode label={scenario === "message" ? "browser" : "sender"} meta={scenario === "message" ? "encrypt plaintext" : "publisher principal"} />
+                    {scenario === "message" && <span className="flow-arrow">→</span>}
+                    {scenario === "message" && <FlowNode label="sender" meta="ciphertext only" />}
                     <span className="flow-arrow">→</span>
                     <FlowNode label="contract" meta={selected.subject} />
                     <span className="flow-arrow">→</span>
@@ -175,7 +254,7 @@ export function LiveDemoV2() {
                     <button onClick={runDemo} disabled={!selected.live || running} className="inline-flex h-11 items-center gap-2 rounded-md bg-ink px-5 text-sm font-medium text-bg transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35">
                       {running ? "Running…" : selected.live ? "Run live message" : "Scenario coming next"} {!running && selected.live && <ArrowRight size={15} />}
                     </button>
-                    {selected.live && <span className="font-mono text-xs text-muted">server-side orchestration · no browser credentials</span>}
+                    {selected.live && <span className="font-mono text-xs text-muted">{scenario === "message" ? "encryption key remains browser-side" : "server-side orchestration · no browser credentials"}</span>}
                   </div>
 
                   {result && <ResultPanel result={result} />}
@@ -264,6 +343,15 @@ function ResultPanel({ result }: { result: RunPayload }) {
         <span><span className="text-term-dim">receiver</span><br />{result.receiver?.receivedCount ?? 0} received</span>
         <span><span className="text-term-dim">evidence</span><br />{allow ? "delivery + ack" : "quarantine"}</span>
       </div>
+      {result.clientProof && (
+        <div className="border-t border-white/10 px-4 py-4 font-mono text-xs">
+          <div className="grid gap-3">
+            <p><span className="text-term-dim">plaintext/browser</span><br /><span className="text-term-text">{result.clientProof.plaintext}</span></p>
+            <p className="break-all"><span className="text-term-dim">ciphertext/path</span><br /><span className="text-term-text/80">{result.clientProof.ciphertext}</span></p>
+            <p><span className="text-term-dim">receiver/browser decrypt</span><br /><span className={result.clientProof.decrypted === result.clientProof.plaintext ? "text-[#7CC9C8]" : "text-term-text"}>{result.clientProof.decrypted || (allow ? "not observed" : "not delivered")}</span></p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
