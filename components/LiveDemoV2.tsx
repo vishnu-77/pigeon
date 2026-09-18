@@ -139,7 +139,7 @@ export function LiveDemoV2() {
         encryptedMessage = encrypted.packed;
       }
 
-      const response = await fetch("/api/demo/run", {
+      const response = await fetch("/api/demo/public-run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ scenario, mode, encryptedMessage })
