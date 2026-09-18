@@ -3,6 +3,7 @@ export default function handler(_request, response) {
     ok: true,
     service: "pigeon-demo-receiver",
     broker: process.env.PIGEON_URL || "https://broker.pigeonmq.cc",
-    supportedScenarios: ["message", "payments", "notifications"]
+    supportedScenarios: ["message", "payments", "notifications"],
+    routes: ["/api/health", "/api/run", "/api/message"]
   });
 }
