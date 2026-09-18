@@ -3,11 +3,11 @@ import { LiveDemoV2 } from "@/components/LiveDemoV2";
 
 export const metadata: Metadata = {
   title: "Live demo — Pigeon",
-  description: "Send a browser-encrypted message through a live Pigeon communication contract and inspect the broker decision and delivery proof.",
+  description: "Try PigeonMQ live: send a message, apply a communication contract and see whether it is delivered or contained.",
   alternates: { canonical: "https://demo.pigeonmq.cc" },
   openGraph: {
     title: "Pigeon live demo",
-    description: "Encrypt a message in the browser, run it through a live Pigeon communication contract, and inspect the broker decision and delivery proof.",
+    description: "Send a message through PigeonMQ and see communication contracts and runtime policy enforcement in action.",
     url: "https://demo.pigeonmq.cc",
     siteName: "Pigeon",
     type: "website"
