@@ -60,7 +60,7 @@ async function encryptForDemo(plaintext: string) {
 
 async function decryptForDemo(key: CryptoKey, packed: string) {
   const parts = packed.split(":");
-  if (parts.length !== 5 || parts.slice(0, 3).join(":") !== "pigeon:aes-gcm") throw new Error("Invalid encrypted payload.");
+  if (parts.length !== 5 || parts.slice(0, 3).join(":") !== "pigeon:aes-gcm:v1") throw new Error("Invalid encrypted payload.");
   const iv = fromBase64Url(parts[3]);
   const ciphertext = fromBase64Url(parts[4]);
   const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
