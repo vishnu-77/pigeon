@@ -304,7 +304,7 @@ export function PigeonSite() {
                 </button>
               ))}
             </div>
-            <a href={GITHUB} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3.5 text-sm font-medium text-bg transition-opacity hover:opacity-90">
+            <a href={GITHUB} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-md border border-line-strong px-3.5 text-sm font-medium text-ink transition-colors hover:bg-panel">
               <Github size={15} /> GitHub
             </a>
           </div>
@@ -385,13 +385,13 @@ export function PigeonSite() {
             <SectionHeader
               kicker="Status"
               title="A real broker, with an intentionally narrow public demo."
-              copy="The runtime, protocol, SDKs and evidence paths live in main. The website explains them and delegates live execution to separately deployed sender, broker and receiver services."
+              copy="The runtime, protocol, SDKs and evidence paths live in main. The site shows the decision a real broker makes on each example, not the deployment behind it."
             />
             <div className="grid overflow-hidden rounded-lg border border-line sm:grid-cols-2">
               {[
                 ["Broker", "main", "Protocol, contracts, admission, append, receive, audit and quarantine."],
                 ["Website", "website", "Developer/researcher narrative and live-demo orchestration."],
-                ["Live demo", "payments + notifications", "Two broker-backed examples today; other paths remain explicit roadmap items."],
+                ["Live demo", "message + payments + notifications", "Three broker-backed examples today; other paths remain explicit roadmap items."],
                 ["Source", "Apache-2.0", "Inspect the implementation, tests, protocol and evaluation directly on GitHub."],
               ].map(([title, meta, copy], index) => (
                 <article key={title} className={`bg-panel p-6 ${index % 2 ? "sm:border-l sm:border-line" : ""} ${index >= 2 ? "border-t border-line" : ""}`}>

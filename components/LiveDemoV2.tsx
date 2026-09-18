@@ -25,7 +25,7 @@ const SCENARIOS: Record<ScenarioKey, { label: string; subject: string; proof: st
   "customer-data": { label: "Profile service → analytics", subject: "customer.profile.export", proof: "classification + purpose boundary", violation: "restricted customer data crosses the contract", live: false },
   "cross-region": { label: "EU service → processing worker", subject: "processing.customer.event", proof: "runtime region boundary", violation: "message targets a disallowed region", live: false },
   "deployment-event": { label: "CI runner → deploy controller", subject: "deploy.release.request", proof: "environment + intent boundary", violation: "staging-scoped publisher requests production", live: false },
-  notifications: { label: "Order service → notifier", subject: "notifications.send", proof: "schema + PII + idempotency", violation: "forbidden recipient data is attached", live: true },
+  notifications: { label: "Order service → notifier", subject: "notifications.send", proof: "schema + PII + idempotency", violation: "forbidden recipient data is attached", live: false },
 };
 
 export function LiveDemoV2() {

@@ -11,39 +11,120 @@ const SCENARIOS = new Set([
   "cross-region",
   "deployment-event"
 ]);
-const LIVE_SCENARIOS = new Set(["payments", "notifications"]);
+const LIVE_SCENARIOS = new Set(["payments"]);
 const MODES = new Set(["allow", "violation"]);
 
-function backendUrl(name: "sender" | "receiver") {
-  if (name === "sender") return process.env.DEMO_SENDER_URL || "https://sender.pigeonmq.cc/api/run";
-  return process.env.DEMO_RECEIVER_URL || "https://receiver.pigeonmq.cc/api/run";
+function brokerUrl() {
+  return process.env.DEMO_BROKER_URL || "https://pigeon-broker-demo.fly.dev";
 }
 
-async function postJson(url: string, body: unknown) {
+function backendUrl(name: "sender" | "receiver") {
+  if (name === "sender") return process.env.DEMO_SENDER_URL || "https://sender.pigeonmq.cc/api/forward";
+  return process.env.DEMO_RECEIVER_URL || "https://receiver.pigeonmq.cc/api/forward";
+}
+
+type ForwardResult = { ok: boolean; status: number; body: any };
+
+async function fetchJson(url: string, init: RequestInit): Promise<ForwardResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
   try {
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-      "x-pigeon-demo": "landing"
-    };
-    if (process.env.PIGEON_DEMO_SHARED_KEY) {
-      headers["x-pigeon-demo-key"] = process.env.PIGEON_DEMO_SHARED_KEY;
+    const response = await fetch(url, { ...init, cache: "no-store", signal: controller.signal });
+    const raw = await response.text();
+    let body: any = null;
+    if (raw) {
+      try { body = JSON.parse(raw); } catch { body = null; }
     }
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      cache: "no-store",
-      signal: controller.signal
-    });
-    const payload = await response.json().catch(() => ({ error: "Backend returned a non-JSON response." }));
-    if (!response.ok) throw new Error(payload?.error || `Demo backend returned ${response.status}.`);
-    return payload;
+    if (body === null) {
+      throw new Error(`Demo backend returned a non-JSON response (${response.status}).`);
+    }
+    return { ok: response.ok, status: response.status, body };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function createSession() {
+  const result = await fetchJson(`${brokerUrl()}/demo/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}"
+  });
+  if (!result.ok || !result.body?.session?.id) {
+    throw new Error(result.body?.error?.message || `Could not start a demo session (${result.status}).`);
+  }
+  return result.body.session.id as string;
+}
+
+async function forward(name: "sender" | "receiver", payload: Record<string, unknown>) {
+  const headers: Record<string, string> = { "content-type": "application/json", "x-pigeon-demo": "landing" };
+  if (process.env.PIGEON_DEMO_SHARED_KEY) headers["x-pigeon-demo-key"] = process.env.PIGEON_DEMO_SHARED_KEY;
+  return fetchJson(backendUrl(name), { method: "POST", headers, body: JSON.stringify(payload) });
+}
+
+async function runPaymentsScenario(sessionId: string, runId: string, mode: string) {
+  const senderContract = await forward("sender", {
+    sessionId,
+    path: "/v1/contracts",
+    method: "POST",
+    principal: "checkout",
+    body: { subjects: ["payments.authorize"], ttlMs: 120_000 }
+  });
+  if (!senderContract.ok) {
+    throw new Error(senderContract.body?.error?.message || `Sender could not negotiate a contract (${senderContract.status}).`);
+  }
+
+  const publish = await forward("sender", {
+    sessionId,
+    path: "/v1/messages",
+    method: "POST",
+    principal: "checkout",
+    contractId: senderContract.body.contract.id,
+    body: {
+      subject: "payments.authorize",
+      type: "payments.authorize.request",
+      source: "checkout-service",
+      intent: "authorize_payment",
+      idempotencyKey: `${runId}:authorize`,
+      classification: "pci",
+      region: "uk",
+      data: {
+        merchantId: "merchant_demo",
+        orderId: runId,
+        amount: 42.5,
+        currency: "GBP",
+        paymentToken: "tok_visa_demo",
+        ...(mode === "violation" ? { card: { pan: "4111111111111111" } } : {})
+      }
+    }
+  });
+
+  if (!publish.ok) {
+    return { decision: "QUARANTINE", error: publish.body?.error?.message, code: publish.body?.error?.code, receivedCount: 0 };
+  }
+
+  const receiverContract = await forward("receiver", {
+    sessionId,
+    path: "/v1/contracts",
+    method: "POST",
+    body: { subjects: ["payments.authorize"], ttlMs: 120_000 }
+  });
+  if (!receiverContract.ok) {
+    throw new Error(receiverContract.body?.error?.message || `Receiver could not negotiate a contract (${receiverContract.status}).`);
+  }
+
+  const received = await forward("receiver", {
+    sessionId,
+    path: "/v1/subjects/payments.authorize/receive",
+    method: "POST",
+    contractId: receiverContract.body.contract.id,
+    body: { max: 1 }
+  });
+  if (!received.ok) {
+    throw new Error(received.body?.error?.message || `Receiver could not fetch the message (${received.status}).`);
+  }
+
+  return { decision: "ALLOW", receivedCount: received.body?.messages?.length ?? 0 };
 }
 
 export async function POST(request: Request) {
@@ -70,29 +151,18 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
 
   try {
-    const sender = await postJson(backendUrl("sender"), { scenario, mode, runId });
-    if (sender?.scenario !== scenario || sender?.runId !== runId) {
-      return NextResponse.json(
-        { live: false, code: "BACKEND_SCENARIO_NOT_DEPLOYED", error: "The live sender is not running the current scenario backend.", scenario, mode, runId },
-        { status: 503 }
-      );
-    }
-
-    const receiver = await postJson(backendUrl("receiver"), { scenario, mode, runId, subject: sender.subject });
+    const sessionId = await createSession();
+    const outcome = await runPaymentsScenario(sessionId, runId, mode);
     return NextResponse.json({
       live: true,
       runId,
       scenario,
       mode,
       elapsedMs: Date.now() - startedAt,
-      sender,
-      receiver,
-      decision: sender.decision,
-      contract: sender.contract,
-      gates: sender.gates,
-      message: sender.message,
-      audit: receiver.audit ?? [],
-      quarantine: receiver.quarantine ?? []
+      decision: outcome.decision,
+      error: outcome.error,
+      code: outcome.code,
+      receiver: { receivedCount: outcome.receivedCount }
     });
   } catch (error) {
     return NextResponse.json(
