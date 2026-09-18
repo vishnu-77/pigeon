@@ -195,8 +195,8 @@ export function LiveDemoV2() {
                   <h2 className="mt-2 font-serif text-[2rem] tracking-[-0.02em] text-ink">{selected.label}</h2>
                 </div>
                 <div className="flex rounded-md border border-line bg-panel p-0.5 text-sm">
-                  <button onClick={() => setMode("allow")} className={`rounded px-4 py-2 ${mode === "allow" ? "bg-ink text-bg" : "text-muted"}`}>Allowed</button>
-                  <button onClick={() => setMode("violation")} className={`rounded px-4 py-2 ${mode === "violation" ? "bg-ink text-bg" : "text-muted"}`}>Violation</button>
+                  <button onClick={() => setMode("allow")} className={`rounded px-4 py-2 ${mode === "allow" ? "bg-navy text-bg" : "text-muted"}`}>Allowed</button>
+                  <button onClick={() => setMode("violation")} className={`rounded px-4 py-2 ${mode === "violation" ? "bg-navy text-bg" : "text-muted"}`}>Violation</button>
                 </div>
               </div>
 
@@ -251,7 +251,7 @@ export function LiveDemoV2() {
                   {!selected.live && <div className="mt-5 rounded-md border border-line bg-bg p-4 text-sm leading-6 text-muted">This path demonstrates the contract model but is not wired to a broker-backed subject in this demo yet.</div>}
 
                   <div className="mt-6 flex flex-wrap items-center gap-4">
-                    <button onClick={runDemo} disabled={!selected.live || running} className="inline-flex h-11 items-center gap-2 rounded-md bg-ink px-5 text-sm font-medium text-bg transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35">
+                    <button onClick={runDemo} disabled={!selected.live || running} className="inline-flex h-11 items-center gap-2 rounded-md bg-navy px-5 text-sm font-medium text-bg transition-[transform,opacity] enabled:hover:-translate-y-0.5 enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35">
                       {running ? "Running…" : selected.live ? "Run live message" : "Scenario coming next"} {!running && selected.live && <ArrowRight size={15} />}
                     </button>
                     {selected.live && <span className="font-mono text-xs text-muted">{scenario === "message" ? "encryption key remains browser-side" : "server-side orchestration · no browser credentials"}</span>}
