@@ -13,7 +13,7 @@ function resolveUrl(envName: string, productionFallback: string) {
 
 const services = {
   sender: resolveUrl("DEMO_SENDER_HEALTH_URL", "https://sender.pigeonmq.cc/api/health"),
-  broker: resolveUrl("DEMO_BROKER_HEALTH_URL", "https://broker.pigeonmq.cc/health"),
+  broker: process.env.DEMO_BROKER_HEALTH_URL || "https://broker.pigeonmq.cc/health",
   receiver: resolveUrl("DEMO_RECEIVER_HEALTH_URL", "https://receiver.pigeonmq.cc/api/health")
 };
 
