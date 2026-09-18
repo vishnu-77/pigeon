@@ -110,9 +110,9 @@ export function Landing() {
               href={GITHUB}
               target="_blank"
               rel="noreferrer"
-              className="hidden h-9 items-center gap-2 bg-[color:var(--ink)] px-3.5 text-sm font-medium text-[color:var(--paper)] sm:flex"
+              className="hidden h-9 items-center gap-1.5 border border-[color:var(--line)] bg-transparent px-3.5 text-sm font-medium text-[color:var(--muted)] transition-colors hover:border-[color:var(--line-strong)] hover:bg-[color:var(--paper-soft)] hover:text-[color:var(--ink)] sm:flex"
             >
-              <Github size={15} /> GitHub
+              GitHub <span aria-hidden="true">↗</span>
             </a>
           </div>
         </nav>
