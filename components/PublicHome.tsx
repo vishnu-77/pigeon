@@ -5,10 +5,17 @@ import { PublicNav } from "@/components/PublicNav";
 import { PigeonLogo } from "@/components/PigeonLogo";
 
 const capabilities = [
-  ["Communication contracts", "Authenticate a principal, request subjects and operations, and receive a short-lived contract defining the session's communication authority."],
-  ["Per-message admission", "Evaluate identity, intent, schema, region, classification, sensitive data and idempotency before append or delivery."],
-  ["Delivery and replay", "Publish, receive, acknowledge and replay through the same contract-bound protocol."],
-  ["Decision evidence", "Allow, deny or quarantine with typed broker decisions and inspectable audit evidence."],
+  ["Communication contracts", "Bind an authenticated principal to explicit subjects and operations for a bounded session instead of relying on indefinite publish authority."],
+  ["Per-message admission", "Evaluate identity, intent, schema, region, classification, sensitive data and idempotency before a governed message proceeds."],
+  ["Consistent operations", "Apply the same contract semantics to publish, receive, replay and acknowledgement rather than enforcing only at connection time."],
+  ["Decision evidence", "Return allow, deny or quarantine as typed broker outcomes and retain the evidence needed to explain the decision."],
+] as const;
+
+const messagePath = [
+  ["01", "Authenticate", "Resolve the calling principal from credentials at the broker boundary."],
+  ["02", "Negotiate", "Request subjects and operations. The broker issues only the permitted communication scope."],
+  ["03", "Admit", "Evaluate each governed message against the contract and subject policy."],
+  ["04", "Deliver or contain", "Allow delivery, deny the operation, or quarantine the message with evidence."],
 ] as const;
 
 const concepts = [
@@ -105,14 +112,33 @@ export function PublicHome() {
         <section className="border-b border-line">
           <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-10 sm:py-24">
             <div className="max-w-[52rem]">
-              <p className="font-mono text-[0.78rem] text-accent">What PigeonMQ adds</p>
-              <h2 className="mt-4 font-serif text-[2.55rem] leading-[1.03] tracking-[-0.025em] text-ink sm:text-[3.35rem]">Communication authority becomes part of the broker path.</h2>
-              <p className="mt-5 text-[1.03rem] leading-8 text-muted">Subjects still organise communication. PigeonMQ additionally represents who may communicate, for which operation, and under which runtime constraints as a broker-issued contract.</p>
+              <p className="font-mono text-[0.78rem] text-accent">What is PigeonMQ?</p>
+              <h2 className="mt-4 font-serif text-[2.55rem] leading-[1.03] tracking-[-0.025em] text-ink sm:text-[3.35rem]">A message broker where communication authority is explicit.</h2>
+              <p className="mt-5 text-[1.03rem] leading-8 text-muted">PigeonMQ keeps the familiar producer, broker, subject and consumer model. It adds a broker-issued communication contract that answers four questions before governed communication proceeds: who is calling, what they may do, under which constraints, and what happened when the broker decided.</p>
             </div>
             <div className="mt-12 grid overflow-hidden rounded-lg border border-line md:grid-cols-2 lg:grid-cols-4">
               {capabilities.map(([title, copy], index) => (
                 <article key={title} className={`bg-panel p-6 ${index ? "border-t border-line md:border-l md:border-t-0" : ""} ${index === 2 ? "md:border-l-0 lg:border-l" : ""} ${index >= 2 ? "md:border-t lg:border-t-0" : ""}`}>
                   <p className="font-mono text-xs text-accent">0{index + 1}</p>
+                  <h3 className="mt-5 text-lg font-semibold text-ink">{title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-muted">{copy}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-b border-line">
+          <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-10 sm:py-24">
+            <div className="max-w-[52rem]">
+              <p className="font-mono text-[0.78rem] text-accent">How it works</p>
+              <h2 className="mt-4 font-serif text-[2.55rem] leading-[1.03] tracking-[-0.025em] text-ink sm:text-[3.35rem]">Authority is negotiated once; message admission still runs every time.</h2>
+              <p className="mt-5 text-[1.03rem] leading-8 text-muted">A communication contract establishes the session boundary. It does not bypass runtime enforcement. Every governed publish, receive, replay or acknowledgement is evaluated by the broker under that contract.</p>
+            </div>
+            <div className="mt-12 grid overflow-hidden rounded-lg border border-line md:grid-cols-2 lg:grid-cols-4">
+              {messagePath.map(([number, title, copy], index) => (
+                <article key={title} className={`bg-panel p-6 ${index ? "border-t border-line md:border-l md:border-t-0" : ""} ${index === 2 ? "md:border-l-0 lg:border-l" : ""} ${index >= 2 ? "md:border-t lg:border-t-0" : ""}`}>
+                  <p className="font-mono text-xs text-accent">{number}</p>
                   <h3 className="mt-5 text-lg font-semibold text-ink">{title}</h3>
                   <p className="mt-3 text-sm leading-6 text-muted">{copy}</p>
                 </article>
@@ -188,13 +214,13 @@ export function PublicHome() {
           </div>
         </section>
 
-        <section className="border-b border-line">
+        <section id="quickstart" className="scroll-mt-24 border-b border-line">
           <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-10 sm:py-24">
             <div className="rounded-lg border border-line-strong bg-panel p-7 sm:p-10 lg:flex lg:items-end lg:justify-between lg:gap-12">
               <div className="max-w-[48rem]">
                 <p className="font-mono text-[0.78rem] text-accent">Start building</p>
                 <h2 className="mt-4 font-serif text-[2.45rem] leading-[1.04] tracking-[-0.02em] text-ink sm:text-[3.2rem]">Start a broker. Negotiate a contract. Send a message.</h2>
-                <p className="mt-5 text-[1rem] leading-7 text-muted">The quickstart takes you from installation to an accepted message, then shows how a policy violation is quarantined before delivery.</p>
+                <p className="mt-5 text-[1rem] leading-7 text-muted">The quickstart takes you from installation to broker health, contract negotiation, an accepted message, receiver delivery, and a deliberate policy violation with quarantine evidence.</p>
               </div>
               <div className="mt-7 flex flex-wrap gap-3 lg:mt-0">
                 <a href="/quickstart" className="inline-flex h-11 items-center rounded-md bg-navy px-5 text-[0.95rem] font-medium text-bg hover:opacity-90">Quickstart →</a>
