@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 const services = {
   sender: process.env.DEMO_SENDER_HEALTH_URL || "https://sender.pigeonmq.cc/api/health",
-  broker: process.env.DEMO_BROKER_HEALTH_URL || "https://broker.pigeonmq.cc/health",
+  broker: process.env.DEMO_BROKER_HEALTH_URL || `${(process.env.DEMO_BROKER_URL || "https://pigeon-broker-demo.fly.dev").replace(/\/$/, "")}/health`,
   receiver: process.env.DEMO_RECEIVER_HEALTH_URL || "https://receiver.pigeonmq.cc/api/health"
 };
 

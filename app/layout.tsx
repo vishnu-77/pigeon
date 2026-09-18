@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Newsreader, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono, Newsreader, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import "./docs-pages.css";
+import "./playground.css";
+import "./infrastructure.css";
 
 const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk", display: "swap" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap", preload: false });
 const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-newsreader", display: "swap", preload: false });
+const navigation = Inter({ subsets: ["latin"], variable: "--font-navigation", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.pigeonmq.cc"),
@@ -29,7 +32,7 @@ export const viewport: Viewport = { themeColor: "#F6F2E8", colorScheme: "light" 
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${grotesk.variable} ${jetbrains.variable} ${newsreader.variable}`}>
+    <html lang="en" className={`${grotesk.variable} ${jetbrains.variable} ${newsreader.variable} ${navigation.variable}`}>
       <body className="min-h-screen font-sans">{children}</body>
     </html>
   );
