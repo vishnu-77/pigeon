@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SCENARIOS = new Set([
+  "message",
   "payments",
   "notifications",
   "agent-tool-call",
@@ -11,16 +12,15 @@ const SCENARIOS = new Set([
   "cross-region",
   "deployment-event"
 ]);
-const LIVE_SCENARIOS = new Set(["payments", "notifications"]);
+const LIVE_SCENARIOS = new Set(["message", "payments", "notifications"]);
 const MODES = new Set(["allow", "violation"]);
 const isProduction = process.env.VERCEL_ENV === "production";
 
-function backendUrl(name: "sender" | "receiver") {
+function backendUrl(name: "sender" | "receiver", scenario: string) {
   const envName = name === "sender" ? "DEMO_SENDER_URL" : "DEMO_RECEIVER_URL";
   const configured = process.env[envName];
-  if (configured) return configured;
-  if (!isProduction) return null;
-  return name === "sender" ? "https://sender.pigeonmq.cc/api/run" : "https://receiver.pigeonmq.cc/api/run";
+  const base = configured || (name === "sender" ? "https://sender.pigeonmq.cc/api/run" : "https://receiver.pigeonmq.cc/api/run");
+  return scenario === "message" ? base.replace(/\/api\/run$/, "/api/message") : base;
 }
 
 async function postJson(url: string, body: unknown) {
@@ -42,7 +42,16 @@ async function postJson(url: string, body: unknown) {
       cache: "no-store",
       signal: controller.signal
     });
-    const payload = await response.json().catch(() => ({ error: "Backend returned a non-JSON response." }));
+    const contentType = response.headers.get("content-type") || "";
+    const raw = await response.text();
+    let payload: any = null;
+    if (contentType.includes("application/json")) {
+      try { payload = JSON.parse(raw); } catch { payload = null; }
+    }
+    if (!payload) {
+      const preview = raw.trim().slice(0, 160);
+      throw new Error(`Demo backend returned ${response.status} ${contentType || "unknown content type"}${preview ? `: ${preview}` : ""}`);
+    }
     if (!response.ok) throw new Error(payload?.error || `Demo backend returned ${response.status}.`);
     return payload;
   } finally {
@@ -51,7 +60,7 @@ async function postJson(url: string, body: unknown) {
 }
 
 export async function POST(request: Request) {
-  let input: { scenario?: string; mode?: string } = {};
+  let input: { scenario?: string; mode?: string; encryptedMessage?: string } = {};
   try {
     input = await request.json();
   } catch {
@@ -70,25 +79,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const senderUrl = backendUrl("sender");
-  const receiverUrl = backendUrl("receiver");
-  if (!senderUrl || !receiverUrl) {
-    return NextResponse.json(
-      {
-        live: false,
-        code: "DEVELOPMENT_BACKEND_NOT_CONFIGURED",
-        environment: isProduction ? "production" : "development",
-        error: "This deployment does not have its demo sender and receiver endpoints configured."
-      },
-      { status: 503 }
-    );
+  const senderUrl = backendUrl("sender", scenario);
+  const receiverUrl = backendUrl("receiver", scenario);
+
+  if (scenario === "message") {
+    const encryptedMessage = typeof input.encryptedMessage === "string" ? input.encryptedMessage : "";
+    if (!encryptedMessage.startsWith("pigeon:aes-gcm:v1:") || encryptedMessage.length > 280) {
+      return NextResponse.json({ live: false, code: "INVALID_ENCRYPTED_MESSAGE", error: "Encrypted demo message is missing or invalid." }, { status: 400 });
+    }
   }
 
   const runId = `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const startedAt = Date.now();
 
   try {
-    const sender = await postJson(senderUrl, { scenario, mode, runId });
+    const sender = await postJson(
+      senderUrl,
+      scenario === "message"
+        ? { mode, runId, message: input.encryptedMessage }
+        : { scenario, mode, runId }
+    );
     if (sender?.scenario !== scenario || sender?.runId !== runId) {
       return NextResponse.json(
         { live: false, code: "BACKEND_SCENARIO_NOT_DEPLOYED", error: "The live sender is not running the current scenario backend.", scenario, mode, runId },
@@ -96,7 +106,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const receiver = await postJson(receiverUrl, { scenario, mode, runId, subject: sender.subject });
+    const receiver = await postJson(
+      receiverUrl,
+      scenario === "message"
+        ? { mode, runId }
+        : { scenario, mode, runId, subject: sender.subject }
+    );
     return NextResponse.json({
       live: true,
       environment: isProduction ? "production" : "development",
