@@ -57,8 +57,8 @@ export function LandingV2() {
                 </button>
               ))}
             </div>
-            <a href={GITHUB} target="_blank" rel="noreferrer" className="hidden h-9 items-center gap-2 border border-[color:var(--line-strong)] px-3 text-sm sm:flex">
-              <Github size={14} /> GitHub
+            <a href={GITHUB} target="_blank" rel="noreferrer" className="hidden h-9 items-center gap-1.5 border border-[color:var(--line)] bg-transparent px-3.5 text-sm font-medium text-[color:var(--muted)] transition-colors hover:border-[color:var(--line-strong)] hover:bg-[color:var(--paper-soft)] hover:text-[color:var(--ink)] sm:flex">
+              GitHub <span aria-hidden="true">↗</span>
             </a>
           </div>
         </div>
